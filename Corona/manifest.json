@@ -1,0 +1,15 @@
+{
+  "name": "Caja Discoteca",
+  "short_name": "Caja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#121016",
+  "theme_color": "#121016",
+  "lang": "es",
+  "icons": [
+    { "src": "icono-180.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
