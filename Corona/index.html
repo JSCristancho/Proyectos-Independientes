@@ -1,0 +1,1806 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<!-- viewport-fit=cover: deja que la app use toda la pantalla del iPhone (incluida la zona del notch) -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Estas etiquetas le dicen al iPhone que, al agregarla a inicio, se abra como app (sin barra de Safari) -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Caja">
+<meta name="theme-color" content="#121016">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icono-180.png">
+<title>Caja Discoteca</title>
+<style>
+  /* Tema oscuro: en una discoteca una pantalla blanca encandila y gasta batería */
+  :root {
+    --fondo: #121016; --tarjeta: #1e1a24; --tarjeta2: #2a2531; --borde: #3a3243;
+    --texto: #f4f1f8; --suave: #a8a1b4;
+    --rosa: #e0246c; --verde: #2e9e47; --rojo: #e5393a; --naranja: #f08c3a; --azul: #3b82f6;
+    --nav: 64px;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--fondo); color: var(--texto);
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  /* env(safe-area-inset-*) = el espacio que ocupan el notch y la barrita de abajo del iPhone */
+  body { padding-top: calc(56px + env(safe-area-inset-top));
+         padding-bottom: calc(var(--nav) + env(safe-area-inset-bottom) + 16px); }
+  h2 { margin: 0 0 8px; font-size: 20px; }
+  h3 { margin: 0 0 12px; font-size: 18px; }
+  p { margin: 0 0 12px; }
+  .suave { color: var(--suave); font-size: 14px; }
+  .rojo-txt { color: var(--rojo); font-weight: 700; }
+  .naranja-txt { color: var(--naranja); }
+  .centro { text-align: center; }
+
+  header { position: fixed; top: 0; left: 0; right: 0; z-index: 10;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background: rgba(18,16,22,.94); border-bottom: 1px solid var(--borde); }
+  header h1 { margin: 0; font-size: 18px; letter-spacing: .5px; }
+  .pill { font-size: 12px; font-weight: 800; padding: 5px 10px; border-radius: 999px; }
+  .pill.abierta { background: var(--verde); }
+  .pill.cerrada { background: var(--tarjeta2); color: var(--suave); }
+
+  main { max-width: 640px; margin: 0 auto; padding: 16px; }
+  main.con-barra { padding-bottom: 96px; }
+
+  nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(18,16,22,.96); border-top: 1px solid var(--borde); }
+  nav button { height: var(--nav); background: none; border: 0; color: var(--suave);
+    font-size: 11px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 4px; }
+  nav button.activo { color: var(--rosa); }
+  nav svg { width: 24px; height: 24px; fill: none; stroke: currentColor;
+    stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .btn { border: 0; border-radius: 12px; padding: 14px 16px; min-height: 48px;
+    font: inherit; font-weight: 700; color: #fff; background: var(--tarjeta2); cursor: pointer; }
+  .btn:active { transform: scale(.98); opacity: .9; }
+  .btn.rosa { background: var(--rosa); }
+  .btn.verde { background: var(--verde); }
+  .btn.rojo { background: var(--rojo); }
+  .btn.naranja { background: var(--naranja); }
+  .btn.borde { background: transparent; border: 1px solid var(--borde); color: var(--texto); }
+  .btn.chico { min-height: 38px; padding: 8px 12px; font-size: 14px; }
+  .bloque { width: 100%; }
+  .enorme { width: 100%; font-size: 22px; padding: 24px; border-radius: 16px; }
+  .fila-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .fila-btns .btn { flex: 1 1 140px; }
+
+  .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde);
+    border-radius: 16px; padding: 16px; margin-bottom: 12px; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 16px 0; }
+  .stat { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 14px; padding: 12px 14px; }
+  .stat span { color: var(--suave); font-size: 13px; }
+  .stat b { display: block; font-size: 22px; margin-top: 2px; }
+  .stat.ancho { grid-column: span 2; }
+  .stat.ancho b { font-size: 30px; }
+
+  .seccion { margin: 20px 0 8px; font-size: 13px; font-weight: 800;
+    letter-spacing: 1px; color: var(--suave); text-transform: uppercase; }
+
+  input, select { width: 100%; font: inherit; font-size: 16px; /* 16px evita que el iPhone haga zoom al escribir */
+    color: var(--texto); background: var(--tarjeta2); border: 1px solid var(--borde);
+    border-radius: 10px; padding: 12px; -webkit-appearance: none; appearance: none; }
+  input:focus, select:focus { outline: 2px solid var(--rosa); border-color: transparent; }
+  .fila-campo { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 0; border-bottom: 1px solid var(--borde); }
+  .fila-campo input { width: 140px; text-align: right; flex: none; }
+  .fila-campo input.cant { width: 80px; }
+  .campo { display: block; margin-bottom: 12px; }
+  .campo > span { display: block; font-size: 14px; color: var(--suave); margin-bottom: 4px; }
+  .busqueda { margin-bottom: 8px; }
+  /* Buscador de la orden: se queda pegado arriba al bajar por la lista */
+  .buscador-orden { position: sticky; top: calc(57px + env(safe-area-inset-top)); z-index: 5;
+    margin: 4px -16px 0; padding: 8px 16px; background: var(--fondo); }
+  .buscador-orden input { padding-right: 44px; }
+  .buscador-orden .limpiar { position: absolute; right: 22px; top: 50%; transform: translateY(-50%);
+    width: 34px; height: 34px; border: 0; border-radius: 50%; background: var(--borde);
+    color: var(--texto); font-size: 20px; line-height: 1; }
+  .buscador-orden input::-webkit-search-cancel-button { display: none; }
+  .producto.mejor { outline: 2px solid var(--rosa); outline-offset: -1px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { border: 1px solid var(--borde); background: var(--tarjeta); color: var(--texto);
+    border-radius: 999px; padding: 10px 16px; font: inherit; font-size: 15px; }
+  .chip.sel { background: var(--rosa); border-color: var(--rosa); font-weight: 700; }
+
+  .producto { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 12px; margin-bottom: 8px; border-radius: 12px;
+    background: var(--tarjeta); border: 1px solid var(--borde); }
+  .producto.promo { border-style: dashed; }
+  .producto.con-cant { border-color: var(--rosa); border-style: solid; background: #2a1824; }
+  .producto .info { min-width: 0; }
+  .producto .info b { display: block; }
+  .producto .info .detalle { display: block; }
+  .stepper { display: flex; align-items: center; flex: none; }
+  .stepper button { width: 46px; height: 46px; border: 0; border-radius: 12px;
+    background: var(--tarjeta2); color: var(--texto); font-size: 24px; font-weight: 700; }
+  .stepper .num { background: transparent; width: 42px; font-size: 20px; }
+
+  .barra-total { position: fixed; left: 0; right: 0; z-index: 9;
+    bottom: calc(var(--nav) + env(safe-area-inset-bottom));
+    background: var(--tarjeta); border-top: 1px solid var(--borde); }
+  .barra-total > div { max-width: 640px; margin: 0 auto; padding: 10px 16px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .barra-total b { font-size: 22px; display: block; }
+
+  .aviso-correccion { background: #3a2a12; border: 1px solid var(--naranja);
+    border-radius: 12px; padding: 12px; margin-bottom: 12px; }
+
+  .orden { cursor: pointer; }
+  .orden .cab { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .orden ul { margin: 0; padding-left: 18px; color: var(--suave); font-size: 14px; }
+
+  .etiqueta-pago { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 8px;
+    border-radius: 999px; background: var(--tarjeta2); color: var(--suave); vertical-align: middle; }
+  .etiqueta-pago.transf { background: #1d3a5c; color: #9cc8ff; }
+
+  .lista-item { display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 0; border-bottom: 1px solid var(--borde); }
+  .lista-item:last-child { border-bottom: 0; }
+  .lista-item .acciones { display: flex; gap: 6px; flex: none; }
+
+  .tabla-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { padding: 9px 6px; border-bottom: 1px solid var(--borde); text-align: right; white-space: nowrap; }
+  th { color: var(--suave); font-weight: 600; font-size: 12px; }
+  th:first-child, td:first-child { text-align: left; white-space: normal; }
+  tr.bajo td { color: var(--rojo); font-weight: 700; }
+  tfoot td { font-weight: 800; border-bottom: 0; }
+  .subtabla { margin-top: 18px; }
+  /* Registro de órdenes del cierre: la columna de detalle sí puede partirse en varias líneas */
+  .tabla-ordenes th.detalle, .tabla-ordenes td.detalle { text-align: left; white-space: normal; min-width: 170px; }
+  .tabla-ordenes td.detalle div + div { margin-top: 2px; }
+
+  .segmento { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; background: var(--tarjeta);
+    border: 1px solid var(--borde); border-radius: 12px; padding: 4px; margin-bottom: 12px; }
+  .segmento button { border: 0; background: none; color: var(--suave); font: inherit; font-size: 14px;
+    font-weight: 700; padding: 10px 4px; border-radius: 9px; }
+  .segmento button.sel { background: var(--tarjeta2); color: var(--texto); }
+  .segmento.pago button.sel[data-p="efectivo"] { background: var(--verde); color: #fff; }
+  .segmento.pago button.sel[data-p="transferencia"] { background: var(--azul); color: #fff; }
+
+  #modal { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.65);
+    display: flex; align-items: flex-end; justify-content: center; padding: 16px; }
+  .caja-modal { width: 100%; max-width: 480px; background: var(--tarjeta);
+    border: 1px solid var(--borde); border-radius: 18px; padding: 20px;
+    margin-bottom: env(safe-area-inset-bottom); max-height: 85vh; overflow-y: auto; }
+  .caja-modal .botones { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+  .caja-modal .botones .btn { flex: 1 1 120px; }
+  .error { color: var(--rojo); font-weight: 700; }
+
+  #toast { position: fixed; left: 50%; top: calc(66px + env(safe-area-inset-top)); z-index: 60;
+    transform: translateX(-50%); background: var(--verde); color: #fff; font-weight: 700;
+    padding: 12px 18px; border-radius: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.4);
+    max-width: calc(100% - 32px); text-align: center; }
+
+  /* Al imprimir (o guardar como PDF) se ocultan los menús y se pasa a fondo blanco */
+  @media print {
+    :root { --fondo: #fff; --tarjeta: #fff; --tarjeta2: #fff; --borde: #bbb; --texto: #000; --suave: #444; }
+    header, nav, .no-imprimir, #toast { display: none !important; }
+    body { padding: 0; }
+    /* En papel no hay scroll: las tablas se muestran completas, el encabezado se
+       repite en cada hoja y ninguna fila queda partida entre dos hojas */
+    .tabla-scroll { overflow: visible; }
+    thead { display: table-header-group; }
+    tr { break-inside: avoid; }
+    .seccion { break-after: avoid; }
+    .stats { break-inside: avoid; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CAJA · DISCOTECA</h1>
+  <span id="estado" class="pill cerrada">CERRADA</span>
+</header>
+
+<main id="vista"></main>
+
+<nav id="menu">
+  <button data-accion="ir" data-destino="inicio">
+    <svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8v10h-6v-6H9v6H3z"/></svg>Inicio</button>
+  <button data-accion="ir" data-destino="orden">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Orden</button>
+  <button data-accion="ir" data-destino="registro">
+    <svg viewBox="0 0 24 24"><path d="M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Registro</button>
+  <button data-accion="ir" data-destino="reportes">
+    <svg viewBox="0 0 24 24"><path d="M5 20V11M12 20V4M19 20v-6M3 20h18"/></svg>Reportes</button>
+  <button data-accion="ir" data-destino="ajustes">
+    <svg viewBox="0 0 24 24"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>Ajustes</button>
+</nav>
+
+<div id="modal" hidden></div>
+<div id="toast" hidden></div>
+<input type="file" id="archivoCopia" accept=".json,application/json" hidden>
+
+<script>
+'use strict';
+
+/* =====================================================================
+   DATOS
+   Todo se guarda en el propio celular (localStorage). No hay servidor ni
+   internet de por medio: por eso la app funciona dentro de la discoteca
+   aunque no haya señal.
+   ===================================================================== */
+
+const CLAVE = 'caja-discoteca-v1';
+
+function nuevoId() {
+  // Cada bebida, promoción y mesero tiene un id fijo. Así se puede cambiar el
+  // nombre sin romper las ventas ya registradas (en el Excel eso no se podía).
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function estadoInicial() {
+  // Los mismos ejemplos que traía el Excel, para que no arranque vacía.
+  const bebidas = [
+    ['Cerveza nacional', 6000], ['Cerveza importada', 9000], ['Botella aguardiente', 90000],
+    ['Botella ron', 110000], ['Botella whisky', 180000], ['Botella vodka', 130000],
+    ['Botella tequila', 150000], ['Media de aguardiente', 50000], ['Cóctel de la casa', 22000],
+    ['Shot', 10000], ['Agua', 4000], ['Gaseosa', 5000], ['Bebida energética', 12000], ['Soda', 18500]
+  ];
+  return {
+    catalogo: bebidas.map(([nombre, precio]) => ({ id: nuevoId(), nombre, precio })),
+    // Promoción = combo de bebidas con un precio total: { id, nombre, precio, items: [{ prodId, cant }] }
+    promos: [],
+    meseros: ['Mesero 1', 'Mesero 2', 'Mesero 3', 'Mesero 4', 'Mesero 5'].map(nombre => ({ id: nuevoId(), nombre })),
+    caja: { abierta: false, apertura: null, stock: {}, base: {} },
+    ordenes: [],
+    novedades: [],   // novedades de la noche en curso (roturas, cortesías...)
+    surtidos: [],    // bebidas que se agregaron al inventario con la caja abierta
+    historial: []
+  };
+}
+
+// Completa lo que falte en datos guardados con versiones anteriores de la app
+function normalizar(d) {
+  if (!Array.isArray(d.promos)) d.promos = [];
+  if (!Array.isArray(d.novedades)) d.novedades = [];
+  if (!Array.isArray(d.surtidos)) d.surtidos = [];
+  for (const o of d.ordenes) if (!o.pago) o.pago = 'efectivo';
+  return d;
+}
+
+function cargar() {
+  try {
+    const texto = localStorage.getItem(CLAVE);
+    if (texto) return normalizar(JSON.parse(texto));
+    // Recuperación automática: si no hay datos con la clave actual, se busca
+    // cualquier otro guardado de esta app (de una versión anterior) en este celular.
+    const anterior = buscarDatosAnteriores();
+    if (anterior) {
+      localStorage.setItem(CLAVE, JSON.stringify(anterior));
+      datosRecuperados = true;
+      return anterior;
+    }
+  } catch (e) { /* si falla la lectura arrancamos con los ejemplos */ }
+  return estadoInicial();
+}
+
+let datosRecuperados = false;
+
+function pareceCopia(d) {
+  return d && Array.isArray(d.catalogo) && Array.isArray(d.meseros)
+    && d.caja && Array.isArray(d.ordenes) && Array.isArray(d.historial);
+}
+
+function buscarDatosAnteriores() {
+  let mejor = null;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k === CLAVE) continue;
+    try {
+      const d = JSON.parse(localStorage.getItem(k));
+      // Si hubiera varios, se queda con el que tenga más noches guardadas
+      if (pareceCopia(d) && (!mejor || d.historial.length > mejor.historial.length)) mejor = d;
+    } catch (e) { /* no es de esta app */ }
+  }
+  return mejor ? normalizar(mejor) : null;
+}
+
+function guardar() {
+  try {
+    localStorage.setItem(CLAVE, JSON.stringify(datos));
+  } catch (e) {
+    aviso('No se pudo guardar en el celular. Haz una copia de seguridad desde Ajustes cuanto antes.');
+  }
+}
+
+let datos = cargar();
+
+/* =====================================================================
+   CÁLCULOS (lo que en el Excel hacían las fórmulas SUMIFS)
+   ===================================================================== */
+
+// Unidades físicas que saca del inventario una línea de orden.
+// Una bebida suelta saca solo esa bebida; una promoción saca cada bebida que la compone.
+function consumoLinea(l) {
+  return l.comp
+    ? l.comp.map(c => ({ prodId: c.prodId, cant: c.cant * l.cant }))
+    : [{ prodId: l.prodId, cant: l.cant }];
+}
+
+function vendidasDe(prodId, excluirNum) {
+  let n = 0;
+  for (const o of datos.ordenes) {
+    if (o.num === excluirNum) continue;
+    for (const l of o.items) for (const c of consumoLinea(l)) if (c.prodId === prodId) n += c.cant;
+  }
+  return n;
+}
+
+// Unidades descontadas por novedades (roturas, cortesías...)
+function bajasDe(prodId) {
+  return datos.novedades.reduce((s, n) => s + (n.prodId === prodId ? n.cant : 0), 0);
+}
+
+// Unidades que se agregaron con "Surtir" durante la noche
+function surtidoDe(prodId) {
+  return datos.surtidos.reduce((s, x) => s + (x.prodId === prodId ? x.cant : 0), 0);
+}
+
+// "Disponible" igual que la hoja Orden: si estamos corrigiendo una orden,
+// lo que esa orden ya había pedido vuelve a contar como disponible.
+function disponible(prodId, ordenCorrigiendo) {
+  const stock = datos.caja.stock[prodId] || 0;
+  return stock + surtidoDe(prodId) - vendidasDe(prodId, ordenCorrigiendo) - bajasDe(prodId);
+}
+
+function totalOrden(o) {
+  return o.items.reduce((s, l) => s + l.cant * l.precio, 0);
+}
+
+function unidadesOrden(o) {
+  return o.items.reduce((s, l) => s + consumoLinea(l).reduce((a, c) => a + c.cant, 0), 0);
+}
+
+function nombreMesero(id) {
+  const m = datos.meseros.find(m => m.id === id);
+  return m ? m.nombre : '(mesero eliminado)';
+}
+
+function nombreProducto(id) {
+  const p = datos.catalogo.find(p => p.id === id);
+  return p ? p.nombre : '(bebida eliminada)';
+}
+
+// Arma el resumen de la noche con el mismo formato con que se guarda en el
+// historial, así las mismas tablas sirven para "esta noche" y "noches pasadas".
+function calcularNoche() {
+  const c = datos.caja;
+  const bebidas = datos.catalogo.map(p => {
+    let vendidas = 0, ventas = 0;
+    for (const o of datos.ordenes) for (const l of o.items) {
+      for (const u of consumoLinea(l)) if (u.prodId === p.id) vendidas += u.cant;
+      if (!l.comp && l.prodId === p.id) ventas += l.cant * l.precio; // solo lo vendido suelto
+    }
+    const stock = c.stock[p.id] || 0;
+    const bajas = bajasDe(p.id);
+    const surtido = surtidoDe(p.id);
+    return { nombre: p.nombre, precio: p.precio, stock, surtido, vendidas, bajas, quedan: stock + surtido - vendidas - bajas, ventas };
+  });
+
+  const porPromo = new Map();
+  for (const o of datos.ordenes) for (const l of o.items) if (l.comp) {
+    const k = l.promoId || l.nombre;
+    const x = porPromo.get(k) || { nombre: l.nombre, cant: 0, ventas: 0 };
+    x.cant += l.cant; x.ventas += l.cant * l.precio;
+    porPromo.set(k, x);
+  }
+
+  const meseros = datos.meseros.map(m => {
+    let bebidasM = 0, efectivo = 0, transferencia = 0;
+    for (const o of datos.ordenes) if (o.meseroId === m.id) {
+      bebidasM += unidadesOrden(o);
+      if (o.pago === 'transferencia') transferencia += totalOrden(o); else efectivo += totalOrden(o);
+    }
+    const base = c.base[m.id] || 0;
+    // Lo que el mesero entrega en efectivo: lo cobrado en efectivo + su base.
+    // Las transferencias ya llegaron a la cuenta, no las trae en la mano.
+    return { nombre: m.nombre, bebidas: bebidasM, vendido: efectivo + transferencia, efectivo, transferencia, base, entregar: efectivo + base };
+  });
+
+  const transferencias = datos.ordenes
+    .filter(o => o.pago === 'transferencia')
+    .slice().sort((a, b) => a.fecha < b.fecha ? -1 : a.fecha > b.fecha ? 1 : a.num - b.num)
+    .map(o => ({ num: o.num, fecha: o.fecha, mesa: o.mesa, mesero: nombreMesero(o.meseroId), monto: totalOrden(o) }));
+
+  const ventas = datos.ordenes.reduce((s, o) => s + totalOrden(o), 0);
+  const totalTransf = transferencias.reduce((s, t) => s + t.monto, 0);
+
+  return {
+    apertura: c.apertura,
+    bebidas, meseros, transferencias,
+    promos: [...porPromo.values()],
+    novedades: datos.novedades.map(n => ({ ...n })),
+    surtidos: datos.surtidos.map(s => ({ ...s })),
+    ordenes: datos.ordenes.map(o => ({
+      num: o.num, fecha: o.fecha, mesa: o.mesa, mesero: nombreMesero(o.meseroId), pago: o.pago,
+      items: o.items.map(l => ({ nombre: l.nombre, precio: l.precio, cant: l.cant, promo: !!l.comp }))
+    })),
+    totales: {
+      ordenes: datos.ordenes.length,
+      bebidas: bebidas.reduce((s, b) => s + b.vendidas, 0),
+      ventas,
+      efectivo: ventas - totalTransf,
+      transferencias: totalTransf,
+      base: meseros.reduce((s, m) => s + m.base, 0),
+      entregar: meseros.reduce((s, m) => s + m.entregar, 0)
+    }
+  };
+}
+
+// Las noches cerradas con la versión anterior no tienen efectivo/transferencias:
+// en esas todo fue efectivo.
+function totalesDe(n) {
+  const t = n.totales;
+  return { ...t, efectivo: t.efectivo ?? t.ventas, transferencias: t.transferencias || 0 };
+}
+
+/* =====================================================================
+   UTILIDADES
+   ===================================================================== */
+
+const formatoPesos = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+const dinero = n => formatoPesos.format(n || 0);
+const hora = iso => new Date(iso).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' });
+const fechaLarga = iso => new Date(iso).toLocaleString('es-CO', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const fechaCorta = iso => new Date(iso).toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const textoPago = p => p === 'transferencia' ? 'Transferencia' : 'Efectivo';
+const etiquetaPago = p => `<span class="etiqueta-pago ${p === 'transferencia' ? 'transf' : ''}">${textoPago(p)}</span>`;
+const textoMesa = m => m ? `Mesa ${m}` : 'Sin mesa';
+
+// Los nombres los escribe el usuario: hay que "escaparlos" para que un
+// nombre con < o & no rompa la pantalla.
+function esc(t) {
+  return String(t ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+// Para buscar sin importar mayúsculas ni tildes ("energetica" encuentra "energética")
+const sinTildes = t => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+// Acepta "100.000", "$100,000" o "100000": se queda solo con los dígitos.
+// Devuelve null si no escribió nada.
+function entero(texto) {
+  const limpio = String(texto ?? '').replace(/[^\d]/g, '');
+  return limpio === '' ? null : Number(limpio);
+}
+
+// "1 Botella aguardiente + 1 Agua"
+const componentesTxt = items => items.map(i => `${i.cant} ${nombreProducto(i.prodId)}`).join(' + ');
+
+/* =====================================================================
+   VENTANAS EMERGENTES (reemplazan los MsgBox / InputBox de las macros)
+   ===================================================================== */
+
+function modal(titulo, cuerpoHtml, botones) {
+  return new Promise(resolve => {
+    const fondo = document.getElementById('modal');
+    fondo.innerHTML = `
+      <div class="caja-modal" role="dialog" aria-modal="true">
+        <h3>${esc(titulo)}</h3>
+        <div>${cuerpoHtml}</div>
+        <div class="botones">${botones.map((b, i) =>
+          `<button class="btn ${b.clase || 'borde'}" data-i="${i}">${esc(b.texto)}</button>`).join('')}</div>
+      </div>`;
+    fondo.hidden = false;
+    const primero = fondo.querySelector('input');
+    if (primero) setTimeout(() => primero.focus(), 50);
+    fondo.onclick = e => {
+      const btn = e.target.closest('button[data-i]');
+      if (!btn) return;
+      const b = botones[Number(btn.dataset.i)];
+      if (b.antes && !b.antes(fondo)) return; // validación falló: no cerrar
+      fondo.hidden = true;
+      fondo.innerHTML = '';
+      fondo.oninput = null;
+      resolve(b.valor);
+    };
+  });
+}
+
+const aviso = texto => modal('Atención', `<p>${esc(texto)}</p>`, [{ texto: 'Entendido', valor: true, clase: 'rosa' }]);
+
+const confirmar = (titulo, html, textoSi, claseSi = 'rojo') =>
+  modal(titulo, html, [{ texto: 'Cancelar', valor: false }, { texto: textoSi, valor: true, clase: claseSi }]);
+
+function mostrarError(f, error) {
+  const p = f.querySelector('.error');
+  p.textContent = error; p.hidden = false;
+  return false;
+}
+
+// Formulario genérico: campos = [{nombre, etiqueta, valor, numerico}]
+// validar(valores) devuelve un texto de error, o nada si todo está bien.
+async function pedirDatos(titulo, campos, validar) {
+  const html = campos.map(c => `
+    <label class="campo"><span>${esc(c.etiqueta)}</span>
+      <input name="${c.nombre}" value="${esc(c.valor ?? '')}" autocomplete="off"
+        ${c.numerico ? 'inputmode="numeric"' : ''} placeholder="${esc(c.ejemplo || '')}"></label>`).join('')
+    + '<p class="error" hidden></p>';
+  let valores = null;
+  const ok = await modal(titulo, html, [
+    { texto: 'Cancelar', valor: false },
+    { texto: 'Guardar', valor: true, clase: 'verde', antes: f => {
+        const v = {};
+        f.querySelectorAll('input[name]').forEach(i => v[i.name] = i.value.trim());
+        const error = validar(v);
+        if (error) return mostrarError(f, error);
+        valores = v;
+        return true;
+      } }
+  ]);
+  return ok ? valores : null;
+}
+
+let temporizadorToast;
+function toast(texto) {
+  const t = document.getElementById('toast');
+  t.textContent = texto;
+  t.hidden = false;
+  clearTimeout(temporizadorToast);
+  temporizadorToast = setTimeout(() => t.hidden = true, 2600);
+}
+
+/* =====================================================================
+   NAVEGACIÓN
+   ===================================================================== */
+
+let pantalla = 'inicio';
+let parametro = null;      // ej. qué noche del historial se está viendo
+let pestanaReporte = 'inventario';
+let filtroMesero = '';
+let busqueda = '';         // lo escrito en el buscador de Ajustes
+let busquedaOrden = '';    // lo escrito en el buscador de la orden
+
+// cant = bebidas sueltas (por id de bebida) · promo = promociones (por id de promo)
+const borradorVacio = () => ({ mesa: '', meseroId: null, pago: 'efectivo', cant: {}, promo: {}, corrigiendo: null });
+let borrador = borradorVacio();
+
+// A qué botón del menú de abajo pertenece cada pantalla
+const MENU_DE = { apertura: 'inicio', noche: 'ajustes' };
+
+function ir(nombre, param = null) {
+  pantalla = nombre;
+  parametro = param;
+  render();
+  window.scrollTo(0, 0);
+}
+
+function render() {
+  const vista = document.getElementById('vista');
+  vista.innerHTML = PANTALLAS[pantalla]();
+  vista.className = pantalla === 'orden' && datos.caja.abierta ? 'con-barra' : '';
+  if (pantalla === 'ajustes') aplicarBusqueda();
+  if (pantalla === 'orden') aplicarBusquedaOrden();
+  const activo = MENU_DE[pantalla] || pantalla;
+  document.querySelectorAll('#menu button').forEach(b => b.classList.toggle('activo', b.dataset.destino === activo));
+  const pill = document.getElementById('estado');
+  pill.textContent = datos.caja.abierta ? 'ABIERTA' : 'CERRADA';
+  pill.className = 'pill ' + (datos.caja.abierta ? 'abierta' : 'cerrada');
+}
+
+/* =====================================================================
+   PANTALLAS
+   ===================================================================== */
+
+const PANTALLAS = {
+
+  inicio() {
+    const c = datos.caja;
+    if (!c.abierta) {
+      const ultima = datos.historial[0];
+      return `
+        <section class="tarjeta centro">
+          <h2>La caja está cerrada</h2>
+          <p class="suave">Para empezar la noche anota el stock inicial de cada bebida y la base (efectivo para cambio) de cada mesero.</p>
+          <button class="btn verde enorme" data-accion="ir" data-destino="apertura">ABRIR CAJA</button>
+        </section>
+        ${ultima ? `
+          <div class="seccion">Última noche</div>
+          <div class="tarjeta orden" data-accion="verNoche" data-id="${ultima.id}">
+            <div class="cab"><b>${fechaLarga(ultima.cierre)}</b><b>${dinero(ultima.totales.ventas)}</b></div>
+            <span class="suave">${ultima.totales.ordenes} órdenes · ${ultima.totales.bebidas} bebidas · toca para ver el detalle</span>
+          </div>` : ''}`;
+    }
+    const r = calcularNoche();
+    const pocas = r.bebidas.filter(b => b.quedan <= 5);
+    return `
+      <button class="btn rosa enorme" data-accion="nuevaOrden">+ NUEVA ORDEN</button>
+      ${statsHtml(r)}
+      ${pocas.length ? `
+        <div class="tarjeta">
+          <b class="rojo-txt">Quedan pocas (5 o menos)</b>
+          <p class="suave" style="margin:6px 0 0">${pocas.map(b => `${esc(b.nombre)}: ${b.quedan}`).join(' · ')}</p>
+        </div>` : ''}
+      <p class="suave">Caja abierta desde ${fechaLarga(c.apertura)}</p>
+      <div class="fila-btns">
+        <button class="btn borde" data-accion="ir" data-destino="apertura">Editar apertura</button>
+        <button class="btn rojo" data-accion="cierre">CIERRE DE CAJA</button>
+      </div>`;
+  },
+
+  apertura() {
+    const c = datos.caja;
+    const editando = c.abierta;
+    const ultima = datos.historial[0];
+    return `
+      <h2>${editando ? 'Editar apertura' : 'Abrir caja'}</h2>
+      <p class="suave">Escribe cuántas unidades hay de cada bebida al empezar la noche y cuánto efectivo de base le das a cada mesero.</p>
+      ${!editando && ultima ? `<button class="btn borde bloque" data-accion="copiarSobrante">Usar lo que sobró la última noche</button>` : ''}
+      <div class="seccion">Stock inicial (unidades)</div>
+      <div class="tarjeta">
+        ${datos.catalogo.map(p => `
+          <label class="fila-campo"><span>${esc(p.nombre)}</span>
+            <input data-stock="${p.id}" inputmode="numeric" placeholder="0"
+              value="${editando && c.stock[p.id] != null ? c.stock[p.id] : ''}"></label>`).join('')
+          || '<p class="suave">No hay bebidas. Agrégalas en Ajustes.</p>'}
+      </div>
+      <div class="seccion">Efectivo base por mesero ($)</div>
+      <div class="tarjeta">
+        ${datos.meseros.map(m => `
+          <label class="fila-campo"><span>${esc(m.nombre)}</span>
+            <input data-base="${m.id}" inputmode="numeric" placeholder="$ 0"
+              value="${editando && c.base[m.id] ? c.base[m.id] : ''}"></label>`).join('')
+          || '<p class="suave">No hay meseros. Agrégalos en Ajustes.</p>'}
+      </div>
+      <button class="btn verde enorme" data-accion="confirmarApertura">${editando ? 'GUARDAR CAMBIOS' : 'CONFIRMAR APERTURA'}</button>`;
+  },
+
+  orden() {
+    if (!datos.caja.abierta) return cajaCerradaHtml();
+    const b = borrador;
+    const nec = necesidadBorrador();
+    const nNov = datos.novedades.length;
+    return `
+      ${b.corrigiendo ? `
+        <div class="aviso-correccion">
+          <b>Corrigiendo la orden #${b.corrigiendo}</b>
+          <p class="suave" style="margin:4px 0 10px">Cambia lo que necesites y pulsa Guardar. Si quitas todas las bebidas, la orden se anula.</p>
+          <div class="fila-btns" style="margin:0">
+            <button class="btn borde chico" data-accion="cancelarCorreccion">Cancelar corrección</button>
+            <button class="btn rojo chico" data-accion="anularOrden" data-num="${b.corrigiendo}">Anular orden</button>
+          </div>
+        </div>` : '<h2>Nueva orden</h2>'}
+      <label class="campo"><span>Mesa (opcional)</span>
+        <input id="mesa" data-campo="mesa" value="${esc(b.mesa)}" placeholder="Ej: 7" autocomplete="off"></label>
+      <div class="campo"><span>Mesero</span>
+        <div class="chips">${datos.meseros.map(m => `
+          <button class="chip ${b.meseroId === m.id ? 'sel' : ''}" data-accion="elegirMesero" data-id="${m.id}">${esc(m.nombre)}</button>`).join('')}
+        </div>
+      </div>
+      <div class="campo"><span>Forma de pago</span>
+        <div class="segmento pago">
+          <button class="${b.pago === 'efectivo' ? 'sel' : ''}" data-accion="elegirPago" data-p="efectivo">Efectivo</button>
+          <button class="${b.pago === 'transferencia' ? 'sel' : ''}" data-accion="elegirPago" data-p="transferencia">Transferencia</button>
+        </div>
+      </div>
+      <div id="anclaBusqueda"></div>
+      <div class="buscador-orden">
+        <input type="search" id="buscarOrden" data-campo="buscarOrden" value="${esc(busquedaOrden)}"
+          placeholder="🔍 Buscar bebida o promoción..." autocomplete="off" enterkeyhint="search">
+        <button class="limpiar" data-accion="limpiarBusquedaOrden" aria-label="Borrar búsqueda" ${busquedaOrden ? '' : 'hidden'}>×</button>
+      </div>
+      <p class="suave" id="sinCoincidencias" hidden>Nada coincide con esa búsqueda.</p>
+      <div id="grupoPromos" ${datos.promos.length ? '' : 'hidden'}>
+        <div class="seccion">Promociones</div>
+        <div id="listaPromos">${datos.promos.map(pr => filaPromoHtml(pr, nec)).join('')}</div>
+      </div>
+      <div id="grupoBebidas">
+        <div class="seccion">Bebidas</div>
+        <div id="listaBebidas">${datos.catalogo.map(p => filaProductoHtml(p, nec)).join('')}</div>
+      </div>
+
+      <div class="seccion">Novedades</div>
+      <div class="tarjeta">
+        <p class="suave">¿Se rompió una botella, hubo una cortesía o un faltante? Anótalo aquí antes del cierre. Si eliges una bebida, se descuenta del inventario.</p>
+        <button class="btn borde bloque" data-accion="nuevaNovedad">+ Registrar novedad</button>
+        ${nNov ? `<p class="suave" style="margin:10px 0 0">Esta noche: ${nNov} ${nNov === 1 ? 'novedad' : 'novedades'} (puedes verlas en Registro).</p>` : ''}
+      </div>
+
+      <div class="barra-total"><div>
+        <div><span class="suave">Total</span><b id="totalOrden">${dinero(totalBorrador())}</b></div>
+        <button class="btn verde" data-accion="registrar">${b.corrigiendo ? 'GUARDAR CORRECCIÓN' : 'REGISTRAR ORDEN'}</button>
+      </div></div>`;
+  },
+
+  registro() {
+    if (!datos.caja.abierta) return cajaCerradaHtml();
+    const novedades = `
+      <div class="seccion">Novedades de la noche</div>
+      <div class="tarjeta">
+        ${novedadesHtml(datos.novedades, true)}
+        <button class="btn borde bloque" style="margin-top:10px" data-accion="nuevaNovedad">+ Registrar novedad</button>
+      </div>`;
+    if (!datos.ordenes.length) {
+      return `<div class="tarjeta centro"><h2>Sin órdenes todavía</h2><p class="suave">Las órdenes de esta noche aparecerán aquí.</p>
+             <button class="btn rosa bloque" data-accion="nuevaOrden">+ NUEVA ORDEN</button></div>${novedades}`;
+    }
+    const conOrdenes = datos.meseros.filter(m => datos.ordenes.some(o => o.meseroId === m.id));
+    const lista = datos.ordenes
+      .filter(o => !filtroMesero || o.meseroId === filtroMesero)
+      .slice().sort((a, b) => b.num - a.num);
+    const total = lista.reduce((s, o) => s + totalOrden(o), 0);
+    return `
+      <h2>Registro de órdenes</h2>
+      <div class="chips" style="margin-bottom:12px">
+        <button class="chip ${!filtroMesero ? 'sel' : ''}" data-accion="filtrar" data-id="">Todos</button>
+        ${conOrdenes.map(m => `<button class="chip ${filtroMesero === m.id ? 'sel' : ''}" data-accion="filtrar" data-id="${m.id}">${esc(m.nombre)}</button>`).join('')}
+      </div>
+      <p class="suave">${lista.length} órdenes · ${dinero(total)} · toca una para corregirla o anularla</p>
+      ${lista.map(o => `
+        <div class="tarjeta orden" data-accion="opcionesOrden" data-num="${o.num}">
+          <div class="cab"><b>#${o.num} · ${esc(textoMesa(o.mesa))}</b><b>${dinero(totalOrden(o))}</b></div>
+          <div class="suave">${hora(o.fecha)} · ${esc(nombreMesero(o.meseroId))} · ${etiquetaPago(o.pago)}</div>
+          <ul>${o.items.map(l => l.comp
+            ? `<li>${l.cant} × Promo ${esc(l.nombre)} <span style="opacity:.75">(${esc(l.comp.map(c => `${c.cant} ${c.nombre}`).join(' + '))})</span></li>`
+            : `<li>${l.cant} × ${esc(l.nombre)}</li>`).join('')}</ul>
+        </div>`).join('')}
+      ${novedades}`;
+  },
+
+  reportes() {
+    if (!datos.caja.abierta) return cajaCerradaHtml();
+    const r = calcularNoche();
+    const pestanas = [['inventario', 'Inventario'], ['meseros', 'Meseros'], ['transferencias', 'Transf.'], ['novedades', 'Novedades']];
+    const contenido = {
+      inventario: () => `
+        <button class="btn verde bloque" style="margin-bottom:14px" data-accion="surtir">+ Surtir bebidas</button>
+        ${tablaInventario(r)}
+        ${datos.surtidos.length ? `
+          <div class="seccion">Surtidos de esta noche</div>
+          ${surtidosHtml(datos.surtidos, true)}` : ''}`,
+      meseros: () => tablaMeseros(r),
+      transferencias: () => tablaTransferencias(r),
+      novedades: () => novedadesHtml(r.novedades, false)
+    }[pestanaReporte]();
+    return `
+      <div class="segmento">
+        ${pestanas.map(([k, t]) => `<button class="${pestanaReporte === k ? 'sel' : ''}" data-accion="pestana" data-p="${k}">${t}</button>`).join('')}
+      </div>
+      <div class="tarjeta">${contenido}</div>
+      <div class="fila-btns">
+        <button class="btn borde" data-accion="compartirActual">Compartir resumen</button>
+        <button class="btn borde" data-accion="csvActual">Exportar a Excel (CSV)</button>
+      </div>`;
+  },
+
+  ajustes() {
+    return `
+      <div class="seccion">Bebidas y precios</div>
+      <div class="tarjeta">
+        <input type="search" class="busqueda" data-campo="buscar" value="${esc(busqueda)}"
+          placeholder="Buscar bebida o promoción..." autocomplete="off">
+        ${datos.catalogo.map(p => `
+          <div class="lista-item" data-buscable data-texto="${esc(sinTildes(p.nombre))}">
+            <div><b>${esc(p.nombre)}</b><div class="suave">${dinero(p.precio)}</div></div>
+            <div class="acciones">
+              <button class="btn borde chico" data-accion="editarProducto" data-id="${p.id}">Editar</button>
+              <button class="btn borde chico" data-accion="eliminarProducto" data-id="${p.id}">Quitar</button>
+            </div>
+          </div>`).join('') || '<p class="suave">No hay bebidas.</p>'}
+        <p class="suave" data-sin-resultados hidden>No hay bebidas con ese nombre.</p>
+        <div class="fila-btns" style="margin-bottom:0">
+          <button class="btn verde" data-accion="agregarProducto">+ Agregar bebida</button>
+          <button class="btn rosa" data-accion="agregarPromo">+ Promoción</button>
+        </div>
+      </div>
+
+      <div class="seccion">Promociones</div>
+      <div class="tarjeta">
+        ${datos.promos.map(pr => `
+          <div class="lista-item" data-buscable data-texto="${esc(sinTildes(pr.nombre + ' ' + componentesTxt(pr.items)))}">
+            <div><b>${esc(pr.nombre)}</b><div class="suave">${dinero(pr.precio)} · ${esc(componentesTxt(pr.items))}</div></div>
+            <div class="acciones">
+              <button class="btn borde chico" data-accion="editarPromo" data-id="${pr.id}">Editar</button>
+              <button class="btn borde chico" data-accion="eliminarPromo" data-id="${pr.id}">Quitar</button>
+            </div>
+          </div>`).join('') || '<p class="suave">Aún no hay promociones. Créalas con el botón "+ Promoción".</p>'}
+        <p class="suave" data-sin-resultados hidden>No hay promociones con ese nombre.</p>
+      </div>
+
+      <div class="seccion">Meseros</div>
+      <div class="tarjeta">
+        ${datos.meseros.map(m => `
+          <div class="lista-item">
+            <b>${esc(m.nombre)}</b>
+            <div class="acciones">
+              <button class="btn borde chico" data-accion="editarMesero" data-id="${m.id}">Editar</button>
+              <button class="btn borde chico" data-accion="eliminarMesero" data-id="${m.id}">Quitar</button>
+            </div>
+          </div>`).join('') || '<p class="suave">No hay meseros.</p>'}
+        <button class="btn verde bloque" style="margin-top:10px" data-accion="agregarMesero">+ Agregar mesero</button>
+      </div>
+
+      <div class="seccion">Historial de noches</div>
+      <div class="tarjeta">
+        ${datos.historial.map(n => `
+          <div class="lista-item orden" data-accion="verNoche" data-id="${n.id}">
+            <div><b>${fechaLarga(n.cierre)}</b><div class="suave">${n.totales.ordenes} órdenes · ${n.totales.bebidas} bebidas</div></div>
+            <b>${dinero(n.totales.ventas)}</b>
+          </div>`).join('') || '<p class="suave">Aún no hay cierres de caja. Cada cierre se guarda aquí.</p>'}
+      </div>
+
+      <div class="seccion">Copia de seguridad</div>
+      <div class="tarjeta">
+        <p class="suave">Los datos viven solo en este celular. Si se pierde o se daña, se pierden. Guarda una copia de vez en cuando (por ejemplo en WhatsApp, Archivos o iCloud).</p>
+        <div class="fila-btns" style="margin-bottom:0">
+          <button class="btn borde" data-accion="exportarCopia">Guardar copia</button>
+          <button class="btn borde" data-accion="importarCopia">Restaurar copia</button>
+        </div>
+      </div>`;
+  },
+
+  noche() {
+    const n = datos.historial.find(h => h.id === parametro);
+    if (!n) return '<p>Esa noche no existe.</p>';
+    return `
+      <button class="btn borde chico no-imprimir" data-accion="ir" data-destino="ajustes">← Volver</button>
+      <h2 style="margin-top:12px">Cierre de caja</h2>
+      <p class="suave">Apertura: ${fechaLarga(n.apertura)}<br>Cierre: ${fechaLarga(n.cierre)}</p>
+      ${statsHtml(n)}
+      <div class="seccion">Transferencias (en orden de hora)</div>
+      <div class="tarjeta">${tablaTransferencias(n)}</div>
+      <div class="seccion">Meseros</div>
+      <div class="tarjeta">${tablaMeseros(n)}</div>
+      <div class="seccion">Inventario</div>
+      <div class="tarjeta">${tablaInventario(n)}</div>
+      ${(n.surtidos || []).length ? `
+        <div class="seccion">Surtidos durante la noche</div>
+        <div class="tarjeta">${surtidosHtml(n.surtidos, false)}</div>` : ''}
+      ${(n.novedades || []).length ? `
+        <div class="seccion">Novedades</div>
+        <div class="tarjeta">${novedadesHtml(n.novedades, false)}</div>` : ''}
+      <div class="seccion">Registro de órdenes (de la más reciente a la más antigua)</div>
+      <div class="tarjeta">${tablaOrdenes(n)}</div>
+      <div class="fila-btns no-imprimir">
+        <button class="btn borde" data-accion="compartirNoche" data-id="${n.id}">Compartir resumen</button>
+        <button class="btn borde" data-accion="csvNoche" data-id="${n.id}">Exportar a Excel (CSV)</button>
+        <button class="btn borde" data-accion="imprimir">Imprimir / PDF</button>
+      </div>`;
+  }
+};
+
+function cajaCerradaHtml() {
+  return `<div class="tarjeta centro"><h2>La caja está cerrada</h2>
+    <p class="suave">Primero hay que abrir la caja.</p>
+    <button class="btn verde bloque" data-accion="ir" data-destino="apertura">ABRIR CAJA</button></div>`;
+}
+
+function statsHtml(n) {
+  const t = totalesDe(n);
+  return `<div class="stats">
+    <div class="stat ancho"><span>Ventas totales</span><b>${dinero(t.ventas)}</b></div>
+    <div class="stat"><span>Efectivo</span><b>${dinero(t.efectivo)}</b></div>
+    <div class="stat"><span>Transferencias</span><b>${dinero(t.transferencias)}</b></div>
+    <div class="stat"><span>Órdenes</span><b>${t.ordenes}</b></div>
+    <div class="stat"><span>Bebidas vendidas</span><b>${t.bebidas}</b></div>
+    <div class="stat"><span>Base entregada</span><b>${dinero(t.base)}</b></div>
+    <div class="stat"><span>Efectivo a entregar (con base)</span><b>${dinero(t.entregar)}</b></div>
+  </div>`;
+}
+
+// Cuántas unidades de cada bebida pide la orden que se está armando
+// (sueltas + las que van dentro de las promociones)
+function necesidadBorrador() {
+  const nec = {};
+  for (const [id, n] of Object.entries(borrador.cant)) if (n) nec[id] = (nec[id] || 0) + n;
+  for (const pr of datos.promos) {
+    const n = borrador.promo[pr.id] || 0;
+    if (n) for (const i of pr.items) nec[i.prodId] = (nec[i.prodId] || 0) + i.cant * n;
+  }
+  return nec;
+}
+
+function filaProductoHtml(p, nec) {
+  const cant = borrador.cant[p.id] || 0;
+  const pide = nec[p.id] || 0;
+  const enPromo = pide - cant;
+  const hay = disponible(p.id, borrador.corrigiendo);
+  const clase = pide > hay ? 'rojo-txt' : hay <= 5 ? 'naranja-txt' : '';
+  return `
+    <div class="producto ${cant ? 'con-cant' : ''}" id="fila-${p.id}">
+      <div class="info">
+        <b>${esc(p.nombre)}</b>
+        <span class="suave">${dinero(p.precio)} · <span class="${clase}">hay ${hay}</span>${enPromo ? ` · ${enPromo} en promo` : ''}</span>
+      </div>
+      <div class="stepper">
+        <button data-accion="menos" data-id="${p.id}" aria-label="Quitar uno">−</button>
+        <button class="num" data-accion="escribirCant" data-id="${p.id}" aria-label="Escribir cantidad">${cant}</button>
+        <button data-accion="mas" data-id="${p.id}" aria-label="Agregar uno">+</button>
+      </div>
+    </div>`;
+}
+
+function filaPromoHtml(pr, nec) {
+  const cant = borrador.promo[pr.id] || 0;
+  const falta = cant && pr.items.some(i => (nec[i.prodId] || 0) > disponible(i.prodId, borrador.corrigiendo));
+  return `
+    <div class="producto promo ${cant ? 'con-cant' : ''}" id="promo-${pr.id}">
+      <div class="info">
+        <b>${esc(pr.nombre)}</b>
+        <span class="suave detalle">${dinero(pr.precio)} · ${esc(componentesTxt(pr.items))}</span>
+        ${falta ? '<span class="rojo-txt detalle" style="font-size:13px">No alcanza el stock</span>' : ''}
+      </div>
+      <div class="stepper">
+        <button data-accion="menosPromo" data-id="${pr.id}" aria-label="Quitar una">−</button>
+        <button class="num" data-accion="escribirPromo" data-id="${pr.id}" aria-label="Escribir cantidad">${cant}</button>
+        <button data-accion="masPromo" data-id="${pr.id}" aria-label="Agregar una">+</button>
+      </div>
+    </div>`;
+}
+
+function totalBorrador() {
+  return datos.catalogo.reduce((s, p) => s + (borrador.cant[p.id] || 0) * p.precio, 0)
+       + datos.promos.reduce((s, pr) => s + (borrador.promo[pr.id] || 0) * pr.precio, 0);
+}
+
+function tablaInventario(n) {
+  const conBajas = n.bebidas.some(b => b.bajas);
+  const conSurtido = n.bebidas.some(b => b.surtido);
+  const sumVentas = n.bebidas.reduce((s, b) => s + b.ventas, 0);
+  const sumBajas = n.bebidas.reduce((s, b) => s + (b.bajas || 0), 0);
+  const sumSurtido = n.bebidas.reduce((s, b) => s + (b.surtido || 0), 0);
+  const promos = n.promos || [];
+  return `<div class="tabla-scroll"><table>
+    <thead><tr><th>Bebida</th><th>Inicial</th>${conSurtido ? '<th>Surtido</th>' : ''}<th>Vendidas</th>${conBajas ? '<th>Novedad</th>' : ''}<th>Quedan</th><th>Ventas</th></tr></thead>
+    <tbody>${n.bebidas.map(b => `
+      <tr class="${b.quedan <= 5 ? 'bajo' : ''}"><td>${esc(b.nombre)}</td><td>${b.stock}</td>${conSurtido ? `<td>${b.surtido ? '+' + b.surtido : 0}</td>` : ''}<td>${b.vendidas}</td>${conBajas ? `<td>${b.bajas || 0}</td>` : ''}<td>${b.quedan}</td><td>${dinero(b.ventas)}</td></tr>`).join('')}
+    </tbody>
+    <tfoot><tr><td>TOTAL</td><td></td>${conSurtido ? `<td>+${sumSurtido}</td>` : ''}<td>${n.totales.bebidas}</td>${conBajas ? `<td>${sumBajas}</td>` : ''}<td></td><td>${dinero(sumVentas)}</td></tr></tfoot>
+  </table></div>
+  <p class="suave" style="margin:8px 0 0">En rojo: quedan 5 unidades o menos.${promos.length ? ' "Vendidas" incluye las que salieron en promociones; "Ventas" es solo lo vendido suelto.' : ''}</p>
+  ${promos.length ? `
+    <div class="tabla-scroll subtabla"><table>
+      <thead><tr><th>Promoción</th><th>Vendidas</th><th>Ventas</th></tr></thead>
+      <tbody>${promos.map(p => `<tr><td>${esc(p.nombre)}</td><td>${p.cant}</td><td>${dinero(p.ventas)}</td></tr>`).join('')}</tbody>
+      <tfoot><tr><td>TOTAL</td><td>${promos.reduce((s, p) => s + p.cant, 0)}</td><td>${dinero(promos.reduce((s, p) => s + p.ventas, 0))}</td></tr></tfoot>
+    </table></div>` : ''}`;
+}
+
+function tablaMeseros(n) {
+  const t = totalesDe(n);
+  return `<div class="tabla-scroll"><table>
+    <thead><tr><th>Mesero</th><th>Bebidas</th><th>Vendido</th><th>Transf.</th><th>Base</th><th>A entregar</th></tr></thead>
+    <tbody>${n.meseros.map(m => `
+      <tr><td>${esc(m.nombre)}</td><td>${m.bebidas}</td><td>${dinero(m.vendido)}</td><td>${dinero(m.transferencia || 0)}</td><td>${dinero(m.base)}</td><td><b>${dinero(m.entregar)}</b></td></tr>`).join('')}
+    </tbody>
+    <tfoot><tr><td>TOTAL</td><td>${t.bebidas}</td><td>${dinero(t.ventas)}</td><td>${dinero(t.transferencias)}</td><td>${dinero(t.base)}</td><td>${dinero(t.entregar)}</td></tr></tfoot>
+  </table></div>
+  <p class="suave" style="margin:8px 0 0">A entregar = lo cobrado en efectivo + la base. Lo pagado por transferencia no lo entrega el mesero.</p>`;
+}
+
+function tablaTransferencias(n) {
+  const lista = n.transferencias || [];
+  if (!lista.length) return '<p class="suave" style="margin:0">No hubo pagos por transferencia.</p>';
+  return `<div class="tabla-scroll"><table>
+    <thead><tr><th>Hora</th><th>Orden</th><th>Mesa</th><th>Mesero</th><th>Monto</th></tr></thead>
+    <tbody>${lista.map(t => `
+      <tr><td>${hora(t.fecha)}</td><td>#${t.num}</td><td>${esc(t.mesa || '—')}</td><td>${esc(t.mesero)}</td><td>${dinero(t.monto)}</td></tr>`).join('')}
+    </tbody>
+    <tfoot><tr><td>TOTAL</td><td>${lista.length}</td><td></td><td></td><td>${dinero(lista.reduce((s, t) => s + t.monto, 0))}</td></tr></tfoot>
+  </table></div>`;
+}
+
+// Cada surtido queda anotado con su hora; en Reportes se puede quitar uno si fue un error
+function surtidosHtml(lista, borrable) {
+  if (!lista || !lista.length) return '<p class="suave" style="margin:0">Sin surtidos.</p>';
+  return lista.slice().sort((a, b) => a.fecha < b.fecha ? 1 : -1).map(s => `
+    <div class="lista-item ${borrable ? 'orden' : ''}" ${borrable ? `data-accion="eliminarSurtido" data-id="${s.id}"` : ''}>
+      <div><b>+${s.cant} ${esc(s.nombre)}</b>
+        <div class="suave">${hora(s.fecha)}${s.nota ? ` · ${esc(s.nota)}` : ''}</div></div>
+      ${borrable ? '<span class="suave">Quitar</span>' : ''}
+    </div>`).join('');
+}
+
+// Todas las órdenes de la noche, la más reciente primero (para el cierre / PDF).
+// Al corregir una orden se conserva su hora original, así que se ordena por hora y,
+// si dos coinciden en el mismo minuto, por número de orden.
+function tablaOrdenes(n) {
+  const lista = (n.ordenes || []).slice()
+    .sort((a, b) => a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : b.num - a.num);
+  if (!lista.length) return '<p class="suave" style="margin:0">No hubo órdenes.</p>';
+  const total = o => o.items.reduce((s, l) => s + l.cant * l.precio, 0);
+  // "Promo aguardiente" no se vuelve "Promo Promo aguardiente"
+  const nombreLinea = l => l.promo && !sinTildes(l.nombre).startsWith('promo') ? `Promo ${l.nombre}` : l.nombre;
+  // El total va arriba (no al pie) para que nunca quede solo en una hoja aparte del PDF
+  return `<p style="margin:0 0 8px"><b>${lista.length} ${lista.length === 1 ? 'orden' : 'órdenes'} · ${dinero(lista.reduce((s, o) => s + total(o), 0))}</b></p>
+  <div class="tabla-scroll"><table class="tabla-ordenes">
+    <thead><tr><th>Orden</th><th>Hora</th><th>Mesa</th><th>Mesero</th><th>Pago</th><th class="detalle">Detalle</th><th>Total</th></tr></thead>
+    <tbody>${lista.map(o => `
+      <tr><td><b>#${o.num}</b></td><td>${hora(o.fecha)}</td><td>${esc(o.mesa || '—')}</td><td>${esc(o.mesero)}</td><td>${textoPago(o.pago)}</td>
+        <td class="detalle">${o.items.map(l => `<div>${l.cant} × ${esc(nombreLinea(l))}</div>`).join('')}</td>
+        <td>${dinero(total(o))}</td></tr>`).join('')}
+    </tbody>
+  </table></div>`;
+}
+
+function novedadesHtml(lista, borrable) {
+  if (!lista || !lista.length) return '<p class="suave" style="margin:0">Sin novedades.</p>';
+  return lista.map(n => `
+    <div class="lista-item ${borrable ? 'orden' : ''}" ${borrable ? `data-accion="eliminarNovedad" data-id="${n.id}"` : ''}>
+      <div><b>${esc(n.texto)}</b>
+        <div class="suave">${hora(n.fecha)}${n.cant ? ` · −${n.cant} ${esc(n.nombre)} del inventario` : ''}</div></div>
+      ${borrable ? '<span class="suave">Quitar</span>' : ''}
+    </div>`).join('');
+}
+
+/* ---------- BUSCADOR DE LA ORDEN ----------
+   Ordena por "mayor coincidencia": primero el nombre exacto, luego los que
+   empiezan igual, luego los que la contienen y al final los que se parecen
+   aunque tengan un error de escritura ("aguardinte" encuentra "aguardiente").
+   Si escribes varias palabras ("cerv imp"), cada una debe coincidir. */
+
+// Cuántas letras hay que cambiar para pasar de una palabra a otra
+function distancia(a, b) {
+  const fila = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    let previo = fila[0]; fila[0] = i;
+    for (let j = 1; j <= b.length; j++) {
+      const tmp = fila[j];
+      fila[j] = Math.min(fila[j] + 1, fila[j - 1] + 1, previo + (a[i - 1] === b[j - 1] ? 0 : 1));
+      previo = tmp;
+    }
+  }
+  return fila[b.length];
+}
+
+function puntaje(nombre, consulta) {
+  const n = sinTildes(nombre);
+  const q = sinTildes(consulta);
+  if (!q) return 1;
+  const palabrasN = n.split(/\s+/);
+  let total = 0;
+  for (const pq of q.split(/\s+/)) {
+    let mejor = 0;
+    for (const pn of palabrasN) {
+      let s = 0;
+      if (pn === pq) s = 100;
+      else if (pn.startsWith(pq)) s = 80 + 10 * pq.length / pn.length;
+      else if (pn.includes(pq)) s = 60;
+      else if (pq.length >= 3) {
+        // Tolera errores: compara con el comienzo de la palabra
+        const d = Math.min(distancia(pq, pn.slice(0, pq.length)), distancia(pq, pn));
+        const tolerancia = pq.length <= 4 ? 1 : 2;
+        if (d <= tolerancia) s = 45 - d * 10;
+      }
+      mejor = Math.max(mejor, s);
+    }
+    if (!mejor) return 0;
+    total += mejor;
+  }
+  if (n === q) total += 50;
+  else if (n.startsWith(q)) total += 15;
+  return total;
+}
+
+function ordenarLista(contenedor, elementos, q) {
+  if (!contenedor) return 0;
+  const conPuntos = elementos
+    .map((it, i) => ({ ...it, i, s: q ? puntaje(it.texto, q) : 1 }))
+    .filter(x => x.el);
+  // Sin búsqueda: orden original. Con búsqueda: de mayor a menor coincidencia.
+  conPuntos.sort((a, b) => q ? (b.s - a.s) || (a.i - b.i) : a.i - b.i);
+  let visibles = 0;
+  for (const x of conPuntos) {
+    x.el.hidden = !x.s;
+    x.el.classList.remove('mejor');
+    contenedor.appendChild(x.el);
+    if (x.s) visibles++;
+  }
+  return { visibles, primero: conPuntos.find(x => x.s) };
+}
+
+function aplicarBusquedaOrden() {
+  const q = busquedaOrden.trim();
+  const rp = ordenarLista(document.getElementById('listaPromos'),
+    datos.promos.map(pr => ({ el: document.getElementById('promo-' + pr.id), texto: pr.nombre + ' ' + componentesTxt(pr.items) })), q);
+  const rb = ordenarLista(document.getElementById('listaBebidas'),
+    datos.catalogo.map(p => ({ el: document.getElementById('fila-' + p.id), texto: p.nombre })), q);
+  if (!rb) return;
+  const gp = document.getElementById('grupoPromos');
+  if (gp) gp.hidden = !datos.promos.length || (q && !rp.visibles);
+  document.getElementById('grupoBebidas').hidden = !!q && !rb.visibles;
+  document.getElementById('sinCoincidencias').hidden = !q || rp.visibles || rb.visibles;
+  const limpiar = document.querySelector('[data-accion="limpiarBusquedaOrden"]');
+  if (limpiar) limpiar.hidden = !q;
+  // El grupo (promociones o bebidas) con la mejor coincidencia va primero
+  const gb = document.getElementById('grupoBebidas');
+  const bebidasPrimero = q && rb.primero && (!rp.primero || rb.primero.s > rp.primero.s);
+  if (gp && gb) {
+    if (bebidasPrimero && gp.nextElementSibling === gb) gp.before(gb);
+    if (!bebidasPrimero && gb.nextElementSibling === gp) gb.before(gp);
+  }
+  // Resalta la mejor coincidencia
+  if (q) {
+    const candidatos = [rp.primero, rb.primero].filter(Boolean).sort((a, b) => b.s - a.s);
+    if (candidatos[0]) candidatos[0].el.classList.add('mejor');
+  }
+}
+
+// Si estabas abajo en la lista, sube para que los resultados queden justo debajo del buscador
+function subirAResultados() {
+  const ancla = document.getElementById('anclaBusqueda');
+  if (!ancla) return;
+  const destino = ancla.getBoundingClientRect().top + window.scrollY - 57;
+  if (window.scrollY > destino) window.scrollTo(0, destino);
+}
+
+// Filtra en vivo la lista de bebidas y promociones de Ajustes
+function aplicarBusqueda() {
+  const q = sinTildes(busqueda);
+  document.querySelectorAll('#vista .tarjeta').forEach(t => {
+    const items = t.querySelectorAll('[data-buscable]');
+    if (!items.length) return;
+    let visibles = 0;
+    items.forEach(el => { const ok = !q || el.dataset.texto.includes(q); el.hidden = !ok; if (ok) visibles++; });
+    const sin = t.querySelector('[data-sin-resultados]');
+    if (sin) sin.hidden = !(q && !visibles);
+  });
+}
+
+/* =====================================================================
+   ACCIONES (lo que hacían las macros de Modulo_Caja.bas)
+   ===================================================================== */
+
+const ACCIONES = {
+
+  ir: d => ir(d.destino),
+
+  /* ---------- ABRIR CAJA (ConfirmarApertura) ---------- */
+  copiarSobrante() {
+    const ultima = datos.historial[0];
+    if (!ultima) return;
+    for (const p of datos.catalogo) {
+      const b = ultima.bebidas.find(x => x.nombre === p.nombre);
+      const input = document.querySelector(`[data-stock="${p.id}"]`);
+      if (b && input) input.value = Math.max(0, b.quedan);
+    }
+    toast('Copiado. Revisa y ajusta lo que haya llegado nuevo.');
+  },
+
+  confirmarApertura() {
+    const stock = {}, base = {};
+    for (const p of datos.catalogo) {
+      const input = document.querySelector(`[data-stock="${p.id}"]`);
+      const v = entero(input.value);
+      if (v === null) {
+        input.focus();
+        return aviso(`Falta el stock inicial de: ${p.nombre}`);
+      }
+      stock[p.id] = v;
+    }
+    for (const m of datos.meseros) {
+      // Igual que en el Excel: la base vacía cuenta como $0
+      base[m.id] = entero(document.querySelector(`[data-base="${m.id}"]`).value) || 0;
+    }
+    const yaAbierta = datos.caja.abierta;
+    datos.caja = { abierta: true, apertura: yaAbierta ? datos.caja.apertura : new Date().toISOString(), stock, base };
+    if (!yaAbierta) { datos.ordenes = []; datos.novedades = []; datos.surtidos = []; }
+    guardar();
+    toast(yaAbierta ? 'Apertura actualizada' : 'Caja abierta');
+    ir('inicio');
+  },
+
+  /* ---------- NUEVA ORDEN / REGISTRAR ---------- */
+  nuevaOrden() {
+    if (!datos.caja.abierta) return aviso('Primero debes abrir la caja.');
+    if (borrador.corrigiendo) borrador = borradorVacio();
+    ir('orden');
+  },
+
+  elegirMesero(d) {
+    borrador.meseroId = d.id;
+    document.querySelectorAll('[data-accion="elegirMesero"]').forEach(b => b.classList.toggle('sel', b.dataset.id === d.id));
+  },
+
+  limpiarBusquedaOrden() {
+    busquedaOrden = '';
+    const i = document.getElementById('buscarOrden');
+    if (i) { i.value = ''; i.focus(); }
+    aplicarBusquedaOrden();
+  },
+
+  elegirPago(d) {
+    borrador.pago = d.p;
+    document.querySelectorAll('[data-accion="elegirPago"]').forEach(b => b.classList.toggle('sel', b.dataset.p === d.p));
+  },
+
+  mas: d => cambiarCantidad('cant', d.id, (borrador.cant[d.id] || 0) + 1),
+  menos: d => cambiarCantidad('cant', d.id, (borrador.cant[d.id] || 0) - 1),
+  masPromo: d => cambiarCantidad('promo', d.id, (borrador.promo[d.id] || 0) + 1),
+  menosPromo: d => cambiarCantidad('promo', d.id, (borrador.promo[d.id] || 0) - 1),
+
+  async escribirCant(d) {
+    const p = datos.catalogo.find(x => x.id === d.id);
+    const v = await pedirCantidad(p.nombre, borrador.cant[d.id]);
+    if (v !== null) cambiarCantidad('cant', d.id, v);
+  },
+
+  async escribirPromo(d) {
+    const pr = datos.promos.find(x => x.id === d.id);
+    const v = await pedirCantidad(pr.nombre, borrador.promo[d.id]);
+    if (v !== null) cambiarCantidad('promo', d.id, v);
+  },
+
+  async registrar() {
+    const b = borrador;
+    b.mesa = document.getElementById('mesa').value.trim(); // la mesa es opcional
+    if (!b.meseroId) return aviso('Elige el mesero.');
+
+    const lineas = [
+      ...datos.catalogo
+        .filter(p => (b.cant[p.id] || 0) > 0)
+        .map(p => ({ prodId: p.id, nombre: p.nombre, precio: p.precio, cant: b.cant[p.id] })),
+      ...datos.promos
+        .filter(pr => (b.promo[pr.id] || 0) > 0)
+        .map(pr => ({
+          promoId: pr.id, nombre: pr.nombre, precio: pr.precio, cant: b.promo[pr.id],
+          // Se guarda qué bebidas lleva, por si después se edita la promoción
+          comp: pr.items.map(i => ({ prodId: i.prodId, nombre: nombreProducto(i.prodId), cant: i.cant }))
+        }))
+    ];
+
+    if (!lineas.length) {
+      if (b.corrigiendo) return ACCIONES.anularOrden({ num: b.corrigiendo });
+      return aviso('Agrega al menos una bebida o promoción.');
+    }
+
+    // Igual que la macro: si no alcanza el stock se avisa, pero se deja registrar
+    const nec = necesidadBorrador();
+    const faltan = datos.catalogo.filter(p => (nec[p.id] || 0) > disponible(p.id, b.corrigiendo));
+    if (faltan.length) {
+      const lista = faltan.map(p => `<li>${esc(p.nombre)}: se necesitan ${nec[p.id]} y solo hay ${disponible(p.id, b.corrigiendo)}</li>`).join('');
+      const seguir = await confirmar('No alcanza el stock', `<ul>${lista}</ul><p>¿Registrar de todos modos?</p>`, 'Registrar igual', 'naranja');
+      if (!seguir) return;
+    }
+
+    let num;
+    if (b.corrigiendo) {
+      // Al corregir se conservan el número, la fecha y la hora originales
+      const o = datos.ordenes.find(x => x.num === b.corrigiendo);
+      num = o.num;
+      o.mesa = b.mesa; o.meseroId = b.meseroId; o.pago = b.pago; o.items = lineas;
+    } else {
+      num = Math.max(0, ...datos.ordenes.map(o => o.num)) + 1;
+      datos.ordenes.push({ num, fecha: new Date().toISOString(), mesa: b.mesa, meseroId: b.meseroId, pago: b.pago, items: lineas });
+    }
+    guardar();
+    const total = lineas.reduce((s, l) => s + l.cant * l.precio, 0);
+    const eraCorreccion = !!b.corrigiendo;
+    toast(`Orden #${num} ${eraCorreccion ? 'corregida' : 'registrada'} · ${dinero(total)} · ${textoPago(b.pago)}`);
+    borrador = borradorVacio();
+    busquedaOrden = '';
+    ir(eraCorreccion ? 'registro' : 'orden');
+  },
+
+  /* ---------- CORREGIR / ANULAR (CorregirOrden, BorrarOrden) ---------- */
+  async opcionesOrden(d) {
+    const num = Number(d.num);
+    const o = datos.ordenes.find(x => x.num === num);
+    const eleccion = await modal(`Orden #${num} · ${textoMesa(o.mesa)}`,
+      `<p class="suave">${hora(o.fecha)} · ${esc(nombreMesero(o.meseroId))} · ${dinero(totalOrden(o))} · ${textoPago(o.pago)}</p>`,
+      [{ texto: 'Cerrar', valor: '' }, { texto: 'Anular', valor: 'anular', clase: 'rojo' }, { texto: 'Corregir', valor: 'corregir', clase: 'naranja' }]);
+    if (eleccion === 'anular') return ACCIONES.anularOrden({ num });
+    if (eleccion === 'corregir') {
+      const enCurso = !borrador.corrigiendo && (Object.values(borrador.cant).some(n => n > 0) || Object.values(borrador.promo).some(n => n > 0));
+      if (enCurso && !await confirmar('Hay una orden a medias', '<p>Tienes una orden nueva sin registrar. Si sigues, se descarta.</p>', 'Descartar y corregir', 'naranja')) return;
+      const cant = {}, promo = {};
+      for (const l of o.items) {
+        if (l.comp) promo[l.promoId] = (promo[l.promoId] || 0) + l.cant;
+        else cant[l.prodId] = (cant[l.prodId] || 0) + l.cant;
+      }
+      borrador = { mesa: o.mesa || '', meseroId: o.meseroId, pago: o.pago || 'efectivo', cant, promo, corrigiendo: num };
+      ir('orden');
+    }
+  },
+
+  async anularOrden(d) {
+    const num = Number(d.num);
+    if (!await confirmar(`¿Anular la orden #${num}?`, '<p>Se borra del registro y sus bebidas vuelven al inventario.</p>', 'Anular orden')) return;
+    datos.ordenes = datos.ordenes.filter(o => o.num !== num);
+    guardar();
+    borrador = borradorVacio();
+    toast(`Orden #${num} anulada`);
+    ir('registro');
+  },
+
+  cancelarCorreccion() {
+    borrador = borradorVacio();
+    ir('registro');
+  },
+
+  filtrar(d) { filtroMesero = d.id; render(); },
+  pestana(d) { pestanaReporte = d.p; render(); },
+
+  /* ---------- NOVEDADES ---------- */
+  async nuevaNovedad() {
+    if (!datos.caja.abierta) return aviso('Primero debes abrir la caja.');
+    const opciones = datos.catalogo.map(p => `<option value="${p.id}">${esc(p.nombre)}</option>`).join('');
+    const html = `
+      <label class="campo"><span>¿Qué pasó?</span>
+        <input name="texto" autocomplete="off" placeholder="Ej: Se rompió una botella en la mesa 4"></label>
+      <label class="campo"><span>Bebida afectada (opcional)</span>
+        <select name="prod"><option value="">— Ninguna (solo anotar) —</option>${opciones}</select></label>
+      <label class="campo"><span>Unidades que se descuentan del inventario</span>
+        <input name="cant" inputmode="numeric" placeholder="0" autocomplete="off"></label>
+      <p class="error" hidden></p>`;
+    let nov = null;
+    const ok = await modal('Registrar novedad', html, [
+      { texto: 'Cancelar', valor: false },
+      { texto: 'Guardar', valor: true, clase: 'verde', antes: f => {
+          const texto = f.querySelector('[name=texto]').value.trim();
+          const prod = f.querySelector('[name=prod]').value;
+          const cant = entero(f.querySelector('[name=cant]').value) || 0;
+          if (!texto) return mostrarError(f, 'Describe la novedad.');
+          if (prod && !cant) return mostrarError(f, 'Escribe cuántas unidades se descuentan.');
+          if (!prod && cant) return mostrarError(f, 'Elige la bebida a la que se le descuentan.');
+          nov = { id: nuevoId(), fecha: new Date().toISOString(), texto,
+                  prodId: prod || null, nombre: prod ? nombreProducto(prod) : '', cant: prod ? cant : 0 };
+          return true;
+        } }
+    ]);
+    if (!ok) return;
+    datos.novedades.push(nov);
+    guardar();
+    toast('Novedad registrada');
+    render();
+  },
+
+  async eliminarNovedad(d) {
+    const n = datos.novedades.find(x => x.id === d.id);
+    if (!n) return;
+    if (!await confirmar('¿Quitar esta novedad?', `<p>${esc(n.texto)}${n.cant ? `<br><span class="suave">Las ${n.cant} unidades de ${esc(n.nombre)} vuelven al inventario.</span>` : ''}</p>`, 'Quitar')) return;
+    datos.novedades = datos.novedades.filter(x => x.id !== d.id);
+    guardar();
+    render();
+  },
+
+  /* ---------- SURTIR (agregar bebidas al inventario con la caja abierta) ---------- */
+  async surtir() {
+    if (!datos.caja.abierta) return aviso('Primero debes abrir la caja.');
+    if (!datos.catalogo.length) return aviso('No hay bebidas. Agrégalas en Ajustes.');
+    const html = `
+      <p class="suave">Escribe cuántas unidades llegan de cada bebida. Se suman a lo que hay y quedan anotadas con la hora.</p>
+      <input type="search" data-filtro-surtir placeholder="Buscar bebida..." autocomplete="off" style="margin-bottom:4px">
+      ${datos.catalogo.map(p => `
+        <label class="fila-campo" data-fila-surtir data-texto="${esc(sinTildes(p.nombre))}">
+          <span>${esc(p.nombre)}<br><span class="suave">hay ${disponible(p.id)}</span></span>
+          <input class="cant" data-surtir="${p.id}" inputmode="numeric" placeholder="0" autocomplete="off"></label>`).join('')}
+      <label class="campo" style="margin-top:12px"><span>Nota (opcional)</span>
+        <input name="nota" autocomplete="off" placeholder="Ej: Traído de bodega"></label>
+      <p class="suave" data-resumen-surtir>Aún no has escrito cantidades.</p>
+      <p class="error" hidden></p>`;
+    let nuevos = null;
+    const promesa = modal('Surtir bebidas', html, [
+      { texto: 'Cancelar', valor: false },
+      { texto: 'Guardar', valor: true, clase: 'verde', antes: f => {
+          const fecha = new Date().toISOString();
+          const nota = f.querySelector('[name=nota]').value.trim();
+          const lista = [];
+          f.querySelectorAll('[data-surtir]').forEach(i => {
+            const cant = entero(i.value) || 0;
+            if (cant) lista.push({ id: nuevoId(), fecha, prodId: i.dataset.surtir, nombre: nombreProducto(i.dataset.surtir), cant, nota });
+          });
+          if (!lista.length) return mostrarError(f, 'Escribe la cantidad de al menos una bebida.');
+          nuevos = lista;
+          return true;
+        } }
+    ]);
+    // Mientras se escribe: filtra la lista y muestra cuántas unidades se van a sumar
+    const fondo = document.getElementById('modal');
+    fondo.oninput = e => {
+      if (e.target.matches('[data-filtro-surtir]')) {
+        const q = sinTildes(e.target.value);
+        fondo.querySelectorAll('[data-fila-surtir]').forEach(f => f.hidden = !!q && !f.dataset.texto.includes(q));
+        return;
+      }
+      let unidades = 0, bebidas = 0;
+      fondo.querySelectorAll('[data-surtir]').forEach(i => { const n = entero(i.value) || 0; if (n) { unidades += n; bebidas++; } });
+      fondo.querySelector('[data-resumen-surtir]').textContent = unidades
+        ? `Se suman ${unidades} ${unidades === 1 ? 'unidad' : 'unidades'} de ${bebidas} ${bebidas === 1 ? 'bebida' : 'bebidas'}.`
+        : 'Aún no has escrito cantidades.';
+    };
+    if (!await promesa) return;
+    datos.surtidos.push(...nuevos);
+    guardar();
+    const total = nuevos.reduce((s, x) => s + x.cant, 0);
+    toast(`Surtido registrado: +${total} ${total === 1 ? 'unidad' : 'unidades'}`);
+    pestanaReporte = 'inventario';
+    render();
+  },
+
+  async eliminarSurtido(d) {
+    const s = datos.surtidos.find(x => x.id === d.id);
+    if (!s) return;
+    const quedarian = disponible(s.prodId) - s.cant;
+    if (!await confirmar('¿Quitar este surtido?',
+      `<p>+${s.cant} ${esc(s.nombre)} a las ${hora(s.fecha)}</p><p class="suave">Esas unidades se restan del inventario${quedarian < 0 ? `. <span class="rojo-txt">Quedarían ${quedarian}, porque ya se vendieron.</span>` : '.'}</p>`,
+      'Quitar')) return;
+    datos.surtidos = datos.surtidos.filter(x => x.id !== d.id);
+    guardar();
+    toast('Surtido quitado');
+    render();
+  },
+
+  /* ---------- CIERRE DE CAJA ---------- */
+  async cierre() {
+    if (!await confirmar('Cierre de caja',
+      '<p>Se guarda el resumen de la noche en el historial y la caja queda limpia para la siguiente noche.</p><p class="suave">Si hubo alguna novedad (rotura, cortesía...), regístrala antes desde Orden.</p>', 'Cerrar caja')) return;
+    const n = calcularNoche();
+    n.id = nuevoId();
+    n.cierre = new Date().toISOString();
+    datos.historial.unshift(n);
+    datos.caja = { abierta: false, apertura: null, stock: {}, base: {} };
+    datos.ordenes = [];
+    datos.novedades = [];
+    datos.surtidos = [];
+    borrador = borradorVacio();
+    guardar();
+    toast('Caja cerrada y guardada en el historial');
+    ir('noche', n.id);
+  },
+
+  verNoche: d => ir('noche', d.id),
+  imprimir: () => window.print(),
+
+  compartirActual: () => compartirTexto(textoResumen(calcularNoche(), 'Resumen parcial')),
+  csvActual: () => compartirArchivo(`Ordenes_${hoyArchivo()}.csv`, csvOrdenes(calcularNoche()), 'text/csv'),
+  compartirNoche(d) {
+    const n = datos.historial.find(h => h.id === d.id);
+    compartirTexto(textoResumen(n, 'Cierre de caja'));
+  },
+  csvNoche(d) {
+    const n = datos.historial.find(h => h.id === d.id);
+    compartirArchivo(`Cierre_${n.cierre.slice(0, 10)}.csv`, csvOrdenes(n), 'text/csv');
+  },
+
+  /* ---------- CATÁLOGO (AgregarProducto, EliminarProducto) ---------- */
+  agregarProducto: () => formularioProducto(null),
+  editarProducto: d => formularioProducto(datos.catalogo.find(p => p.id === d.id)),
+
+  async eliminarProducto(d) {
+    const p = datos.catalogo.find(x => x.id === d.id);
+    if (vendidasDe(p.id) > 0 || bajasDe(p.id) > 0 || surtidoDe(p.id) > 0) return aviso(`No se puede quitar "${p.nombre}": tiene movimientos en la noche actual. Hazlo después del cierre de caja.`);
+    const enPromos = datos.promos.filter(pr => pr.items.some(i => i.prodId === p.id));
+    if (enPromos.length) return aviso(`No se puede quitar "${p.nombre}": está en la promoción ${enPromos.map(pr => `"${pr.nombre}"`).join(', ')}. Quítala de la promoción primero.`);
+    if (!await confirmar(`¿Quitar "${p.nombre}"?`, '<p>Deja de aparecer en las órdenes y en el inventario.</p>', 'Quitar')) return;
+    datos.catalogo = datos.catalogo.filter(x => x.id !== p.id);
+    delete datos.caja.stock[p.id];
+    delete borrador.cant[p.id];
+    guardar();
+    render();
+  },
+
+  /* ---------- PROMOCIONES ---------- */
+  agregarPromo: () => formularioPromo(null),
+  editarPromo: d => formularioPromo(datos.promos.find(p => p.id === d.id)),
+
+  async eliminarPromo(d) {
+    const pr = datos.promos.find(x => x.id === d.id);
+    if (datos.ordenes.some(o => o.items.some(l => l.promoId === pr.id))) return aviso(`No se puede quitar "${pr.nombre}": se vendió en la noche actual. Hazlo después del cierre de caja.`);
+    if (!await confirmar(`¿Quitar la promoción "${pr.nombre}"?`, '<p>Deja de aparecer en las órdenes.</p>', 'Quitar')) return;
+    datos.promos = datos.promos.filter(x => x.id !== pr.id);
+    delete borrador.promo[pr.id];
+    guardar();
+    render();
+  },
+
+  agregarMesero: () => formularioMesero(null),
+  editarMesero: d => formularioMesero(datos.meseros.find(m => m.id === d.id)),
+
+  async eliminarMesero(d) {
+    const m = datos.meseros.find(x => x.id === d.id);
+    if (datos.ordenes.some(o => o.meseroId === m.id)) return aviso(`No se puede quitar a "${m.nombre}": tiene órdenes en la noche actual. Hazlo después del cierre de caja.`);
+    if (!await confirmar(`¿Quitar a "${m.nombre}"?`, '', 'Quitar')) return;
+    datos.meseros = datos.meseros.filter(x => x.id !== m.id);
+    delete datos.caja.base[m.id];
+    guardar();
+    render();
+  },
+
+  /* ---------- COPIA DE SEGURIDAD ---------- */
+  exportarCopia: () => compartirArchivo(`Copia_Caja_${hoyArchivo()}.json`, JSON.stringify(datos), 'application/json'),
+  importarCopia: () => document.getElementById('archivoCopia').click()
+};
+
+async function pedirCantidad(titulo, actual) {
+  const v = await pedirDatos(titulo, [{ nombre: 'cant', etiqueta: 'Cantidad', valor: actual || '', numerico: true }],
+    v => entero(v.cant) === null && v.cant !== '' ? 'Escribe un número.' : '');
+  return v ? (entero(v.cant) || 0) : null;
+}
+
+// tipo = 'cant' (bebida suelta) o 'promo'
+function cambiarCantidad(tipo, id, n) {
+  borrador[tipo][id] = Math.max(0, n);
+  refrescarFilas();
+}
+
+// Solo se redibujan las filas (no toda la pantalla) para no perder la
+// posición del scroll ni lo escrito en "Mesa". Se redibujan todas porque
+// una promoción cambia el "hay" de varias bebidas a la vez.
+function refrescarFilas() {
+  const nec = necesidadBorrador();
+  for (const p of datos.catalogo) {
+    const el = document.getElementById('fila-' + p.id);
+    if (el) el.outerHTML = filaProductoHtml(p, nec);
+  }
+  for (const pr of datos.promos) {
+    const el = document.getElementById('promo-' + pr.id);
+    if (el) el.outerHTML = filaPromoHtml(pr, nec);
+  }
+  const t = document.getElementById('totalOrden');
+  if (t) t.textContent = dinero(totalBorrador());
+  aplicarBusquedaOrden();
+}
+
+async function formularioProducto(p) {
+  const abierta = datos.caja.abierta;
+  const campos = [
+    { nombre: 'nombre', etiqueta: 'Nombre', valor: p?.nombre, ejemplo: 'Ej: Cerveza nacional' },
+    { nombre: 'precio', etiqueta: 'Precio de venta ($)', valor: p?.precio, numerico: true, ejemplo: 'Ej: 6000' }
+  ];
+  // Si la caja está abierta, una bebida nueva necesita su stock de esta noche
+  if (abierta) campos.push({ nombre: 'stock', etiqueta: 'Stock inicial de esta noche (unidades)', valor: p ? datos.caja.stock[p.id] : '', numerico: true, ejemplo: 'Ej: 24' });
+  const v = await pedirDatos(p ? 'Editar bebida' : 'Agregar bebida', campos, v => {
+    if (!v.nombre) return 'Escribe el nombre.';
+    if (datos.catalogo.some(x => x !== p && x.nombre.toLowerCase() === v.nombre.toLowerCase())) return 'Esa bebida ya existe.';
+    if (entero(v.precio) === null) return 'Escribe el precio.';
+    if (abierta && entero(v.stock) === null) return 'Escribe el stock inicial (0 si no hay).';
+  });
+  if (!v) return;
+  const destino = p || { id: nuevoId() };
+  destino.nombre = v.nombre;
+  destino.precio = entero(v.precio);
+  if (!p) datos.catalogo.push(destino);
+  if (abierta) datos.caja.stock[destino.id] = entero(v.stock);
+  guardar();
+  toast(p ? 'Bebida actualizada' : 'Bebida agregada');
+  render();
+}
+
+// Armar una promoción: nombre, precio total y qué bebidas lleva (con cantidades).
+// Sirve para descuentos (combo más barato), regalos (aguardiente + agua al precio
+// del aguardiente) o "pague X lleve Y" (6 cervezas al precio de 5).
+async function formularioPromo(pr) {
+  if (!datos.catalogo.length) return aviso('Primero agrega bebidas.');
+  const cantDe = id => pr?.items.find(i => i.prodId === id)?.cant || '';
+  const html = `
+    <label class="campo"><span>Nombre de la promoción</span>
+      <input name="nombre" value="${esc(pr?.nombre ?? '')}" placeholder="Ej: Promo aguardiente" autocomplete="off"></label>
+    <label class="campo"><span>Precio total de la promoción ($)</span>
+      <input name="precio" inputmode="numeric" value="${pr?.precio ?? ''}" placeholder="Ej: 90000" autocomplete="off"></label>
+    <p class="suave" data-precio-normal></p>
+    <div class="campo"><span>Bebidas que incluye (escribe la cantidad de cada una)</span>
+      <input type="search" data-filtro-promo placeholder="Buscar bebida..." autocomplete="off" style="margin-bottom:4px">
+      ${datos.catalogo.map(p => `
+        <label class="fila-campo" data-fila-promo data-texto="${esc(sinTildes(p.nombre))}">
+          <span>${esc(p.nombre)}<br><span class="suave">${dinero(p.precio)}</span></span>
+          <input class="cant" data-comp="${p.id}" inputmode="numeric" placeholder="0" value="${cantDe(p.id)}" autocomplete="off"></label>`).join('')}
+    </div>
+    <p class="error" hidden></p>`;
+
+  let valores = null;
+  const promesa = modal(pr ? 'Editar promoción' : 'Nueva promoción', html, [
+    { texto: 'Cancelar', valor: false },
+    { texto: 'Guardar', valor: true, clase: 'verde', antes: f => {
+        const nombre = f.querySelector('[name=nombre]').value.trim();
+        const precio = entero(f.querySelector('[name=precio]').value);
+        const items = [];
+        f.querySelectorAll('[data-comp]').forEach(i => { const n = entero(i.value) || 0; if (n) items.push({ prodId: i.dataset.comp, cant: n }); });
+        if (!nombre) return mostrarError(f, 'Escribe el nombre de la promoción.');
+        if (datos.promos.some(x => x !== pr && x.nombre.toLowerCase() === nombre.toLowerCase())) return mostrarError(f, 'Ya hay una promoción con ese nombre.');
+        if (precio === null) return mostrarError(f, 'Escribe el precio total.');
+        if (!items.length) return mostrarError(f, 'Escribe la cantidad de al menos una bebida.');
+        valores = { nombre, precio, items };
+        return true;
+      } }
+  ]);
+
+  // Mientras se escribe: filtra la lista y muestra cuánto costaría por separado
+  const fondo = document.getElementById('modal');
+  const actualizar = () => {
+    let normal = 0, unidades = 0;
+    fondo.querySelectorAll('[data-comp]').forEach(i => {
+      const n = entero(i.value) || 0;
+      normal += n * datos.catalogo.find(x => x.id === i.dataset.comp).precio;
+      unidades += n;
+    });
+    const precio = entero(fondo.querySelector('[name=precio]').value);
+    fondo.querySelector('[data-precio-normal]').textContent = !unidades
+      ? 'Aún no has elegido bebidas.'
+      : `Por separado costaría ${dinero(normal)}` + (precio !== null && precio < normal ? ` · el cliente ahorra ${dinero(normal - precio)}` : '');
+  };
+  fondo.oninput = e => {
+    if (e.target.matches('[data-filtro-promo]')) {
+      const q = sinTildes(e.target.value);
+      fondo.querySelectorAll('[data-fila-promo]').forEach(f => f.hidden = !!q && !f.dataset.texto.includes(q));
+    } else actualizar();
+  };
+  actualizar();
+
+  if (!await promesa) return;
+  const destino = pr || { id: nuevoId() };
+  Object.assign(destino, valores);
+  if (!pr) datos.promos.push(destino);
+  guardar();
+  toast(pr ? 'Promoción actualizada' : 'Promoción creada');
+  render();
+}
+
+async function formularioMesero(m) {
+  const abierta = datos.caja.abierta;
+  const campos = [{ nombre: 'nombre', etiqueta: 'Nombre', valor: m?.nombre, ejemplo: 'Ej: Carlos' }];
+  if (abierta) campos.push({ nombre: 'base', etiqueta: 'Efectivo base de esta noche ($)', valor: m ? datos.caja.base[m.id] || '' : '', numerico: true, ejemplo: 'Ej: 100000' });
+  const v = await pedirDatos(m ? 'Editar mesero' : 'Agregar mesero', campos, v => {
+    if (!v.nombre) return 'Escribe el nombre.';
+    if (datos.meseros.some(x => x !== m && x.nombre.toLowerCase() === v.nombre.toLowerCase())) return 'Ese mesero ya existe.';
+  });
+  if (!v) return;
+  const destino = m || { id: nuevoId() };
+  destino.nombre = v.nombre;
+  if (!m) datos.meseros.push(destino);
+  if (abierta) datos.caja.base[destino.id] = entero(v.base) || 0;
+  guardar();
+  toast(m ? 'Mesero actualizado' : 'Mesero agregado');
+  render();
+}
+
+/* =====================================================================
+   EXPORTAR / COMPARTIR (reemplaza el PDF y la copia con fecha del Excel)
+   ===================================================================== */
+
+const hoyArchivo = () => new Date().toISOString().slice(0, 10);
+
+function textoResumen(n, titulo) {
+  const t = totalesDe(n);
+  const transf = n.transferencias || [];
+  const promos = n.promos || [];
+  const novs = n.novedades || [];
+  const lineas = [
+    `*${titulo}*`,
+    n.cierre ? `Cierre: ${fechaLarga(n.cierre)}` : `Abierta desde: ${fechaLarga(n.apertura)}`,
+    '',
+    `Ventas totales: ${dinero(t.ventas)}`,
+    `Efectivo: ${dinero(t.efectivo)} · Transferencias: ${dinero(t.transferencias)}`,
+    `Órdenes: ${t.ordenes} · Bebidas: ${t.bebidas}`,
+    '',
+    '*Meseros (efectivo + base = entregar)*',
+    ...n.meseros.filter(m => m.bebidas || m.base).map(m =>
+      `${m.nombre}: ${dinero(m.efectivo ?? m.vendido)} + ${dinero(m.base)} = ${dinero(m.entregar)}${m.transferencia ? ` (transf. ${dinero(m.transferencia)})` : ''}`),
+    `TOTAL A ENTREGAR: ${dinero(t.entregar)}`
+  ];
+  if (transf.length) lineas.push('', '*Transferencias*',
+    ...transf.map(x => `${hora(x.fecha)} · #${x.num}${x.mesa ? ` · Mesa ${x.mesa}` : ''} · ${x.mesero} · ${dinero(x.monto)}`));
+  if (promos.length) lineas.push('', '*Promociones (vendidas)*', ...promos.map(p => `${p.nombre}: ${p.cant} · ${dinero(p.ventas)}`));
+  lineas.push('', '*Inventario (vendidas / quedan)*',
+    ...n.bebidas.map(b => `${b.nombre}: ${b.vendidas} / ${b.quedan}${b.surtido ? ` (surtido +${b.surtido})` : ''}${b.bajas ? ` (novedad −${b.bajas})` : ''}${b.quedan <= 5 ? ' ⚠' : ''}`));
+  const surts = n.surtidos || [];
+  if (surts.length) lineas.push('', '*Surtidos*',
+    ...surts.map(x => `${hora(x.fecha)} · +${x.cant} ${x.nombre}${x.nota ? ` (${x.nota})` : ''}`));
+  if (novs.length) lineas.push('', '*Novedades*',
+    ...novs.map(x => `${hora(x.fecha)} · ${x.texto}${x.cant ? ` (−${x.cant} ${x.nombre})` : ''}`));
+  return lineas.join('\n');
+}
+
+// CSV = archivo de texto que Excel abre como tabla. Se usa ";" porque el
+// Excel en español espera punto y coma; el \uFEFF inicial hace que respete las tildes.
+function csvOrdenes(n) {
+  const celda = v => /[;"\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : v;
+  const filas = [['Orden N°', 'Fecha', 'Hora', 'Mesa', 'Mesero', 'Pago', 'Producto', 'Cantidad', 'Precio', 'Subtotal']];
+  for (const o of n.ordenes) for (const l of o.items) {
+    // Hora en formato 24h (15:51): Excel no reconoce "03:51 p. m." como hora
+    const h24 = new Date(o.fecha).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+    filas.push([o.num, fechaCorta(o.fecha), h24, o.mesa || '', o.mesero, textoPago(o.pago),
+      l.promo ? `Promo: ${l.nombre}` : l.nombre, l.cant, l.precio, l.cant * l.precio]);
+  }
+  return '\uFEFF' + filas.map(f => f.map(celda).join(';')).join('\r\n');
+}
+
+async function compartirTexto(texto) {
+  // En el iPhone esto abre el menú "Compartir" (WhatsApp, Notas, Mail...)
+  if (navigator.share) {
+    try { await navigator.share({ text: texto }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  try {
+    await navigator.clipboard.writeText(texto);
+    toast('Resumen copiado. Pégalo donde quieras.');
+  } catch (e) {
+    modal('Resumen', `<pre style="white-space:pre-wrap;font-size:13px">${esc(texto)}</pre>`, [{ texto: 'Cerrar', valor: true }]);
+  }
+}
+
+async function compartirArchivo(nombre, contenido, tipo) {
+  const archivo = new File([contenido], nombre, { type: tipo });
+  if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+    try { await navigator.share({ files: [archivo] }); return; }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+  // Plan B (computador): descarga normal
+  const url = URL.createObjectURL(archivo);
+  const a = document.createElement('a');
+  a.href = url; a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+document.getElementById('archivoCopia').addEventListener('change', async e => {
+  const archivo = e.target.files[0];
+  e.target.value = '';
+  if (!archivo) return;
+  let copia;
+  try { copia = JSON.parse(await archivo.text()); } catch (err) { return aviso('Ese archivo no es una copia válida.'); }
+  if (!pareceCopia(copia)) return aviso('Ese archivo no es una copia de esta app.');
+  normalizar(copia);
+  const nuevas = copia.historial.filter(h => !datos.historial.some(x => x.id === h.id));
+  const eleccion = await modal('¿Qué hacer con esta copia?', `
+    <p class="suave">La copia tiene ${copia.historial.length} noches cerradas, ${copia.catalogo.length} bebidas y ${copia.promos.length} promociones.</p>
+    <p><b>Agregar sus noches</b>: suma al historial las ${nuevas.length} noches que aquí no están y conserva todo lo actual (bebidas, promociones, meseros y la caja abierta).</p>
+    <p><b>Reemplazar todo</b>: deja la app exactamente como estaba en la copia.</p>`,
+    [{ texto: 'Cancelar', valor: '' },
+     { texto: 'Agregar sus noches', valor: 'unir', clase: 'verde' },
+     { texto: 'Reemplazar todo', valor: 'reemplazar', clase: 'rojo' }]);
+  if (!eleccion) return;
+  if (eleccion === 'unir') {
+    datos.historial = [...datos.historial, ...nuevas].sort((a, b) => a.cierre < b.cierre ? 1 : -1);
+    toast(`${nuevas.length} noches agregadas al historial`);
+  } else {
+    datos = copia;
+    borrador = borradorVacio();
+    toast('Copia restaurada');
+  }
+  guardar();
+  ir('inicio');
+});
+
+/* =====================================================================
+   ARRANQUE
+   ===================================================================== */
+
+// Un solo "escuchador" para todos los botones: cada botón dice qué hacer
+// con su atributo data-accion. Así no hay que conectar botón por botón.
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-accion]');
+  if (!el || el.closest('#modal')) return;
+  ACCIONES[el.dataset.accion]?.(el.dataset, el);
+});
+
+document.addEventListener('input', e => {
+  // Lo que se escribe en "Mesa" se guarda al instante para no perderlo al cambiar de pantalla.
+  if (e.target.dataset.campo === 'mesa') borrador.mesa = e.target.value;
+  // Buscador de Ajustes: filtra mientras se escribe
+  if (e.target.dataset.campo === 'buscar') { busqueda = e.target.value; aplicarBusqueda(); }
+  // Buscador de la orden: reordena por mayor coincidencia mientras se escribe
+  if (e.target.dataset.campo === 'buscarOrden') { busquedaOrden = e.target.value; aplicarBusquedaOrden(); subirAResultados(); }
+});
+
+document.addEventListener('keydown', e => {
+  // "Listo" / Enter en el teclado solo lo cierra (no agrega nada por accidente)
+  if (e.key === 'Enter' && e.target.dataset?.campo === 'buscarOrden') { e.preventDefault(); e.target.blur(); }
+});
+
+// El "service worker" guarda la app dentro del celular para que abra sin
+// internet. Solo funciona cuando la app se sirve desde una dirección web
+// (https), no al abrir el archivo directamente en el computador.
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+// Le pide al navegador que no borre los datos aunque falte espacio
+navigator.storage?.persist?.().catch(() => {});
+
+render();
+if (datosRecuperados) aviso('Se recuperaron automáticamente los datos que esta app tenía guardados en el celular.');
+</script>
+</body>
+</html>
