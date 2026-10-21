@@ -1,0 +1,19 @@
+BJL BORDADOS - Sistema compartido (varios celulares, con y sin internet)
+======================================================================
+Lee primero GUIA-CONFIGURACION.txt (paso a paso para la dueña).
+
+ARCHIVOS
+index.html, style.css, app.js     Interfaz y logica
+store.js                          Datos compartidos y acceso (Firebase)
+firebase-config.js                Datos de TU Firebase (se edita una vez)
+firestore.rules                   Reglas de seguridad (se pegan en Firebase)
+receipts.js, logo.js              Recibo PDF 80 mm (diseno elegante)
+lib/jspdf.umd.min.js              Generador de PDF (incluido)
+lib/firebase-bundle.js            Firebase empaquetado (incluido, funciona offline)
+service-worker.js, manifest.json  Modo sin conexion e instalacion
+GUIA-CONFIGURACION.txt            Instrucciones para la dueña
+
+ACCESIBILIDAD
+Teclado completo, lector de pantalla (TalkBack/VoiceOver), contraste AA en modo claro y oscuro,
+botones de 44 px, zoom y pantallas de 320 px sin desplazamiento horizontal,
+ventanas con foco atrapado y cierre con Esc, y respeto a «reducir movimiento».
