@@ -8,6 +8,7 @@
 const Store = (() => {
   const CFG = window.BJL_CONFIG || {};
   const DIAS_INICIAL = 60;
+  const DIAS_MAX_EMPLEADA = 90;     // las reglas permiten 100: el margen cubre zona horaria y reloj
   const RECIBO_DEFECTO = { direccion: "CRA 34B # 50-163", telefono: "300 2503560", nit: "63524107", mensaje: "¡Gracias por confiar en nosotros!" };
   const SEED = [["Bordado Pecho", 18000], ["Bordado Espalda", 30000], ["Bordado Manga", 12000], ["Gorra", 15000],
                 ["Camisa Polo", 35000], ["Chaqueta", 45000], ["Sudadera", 55000]];
@@ -136,14 +137,21 @@ const Store = (() => {
     }, errData);
   }
 
-  // Carga ordenes mas antiguas (para historial o cierre de dias pasados)
+  // Carga ordenes mas antiguas (para historial o cierre de dias pasados).
+  // Las reglas solo dejan a las empleadas consultar ~100 dias atras; la app les pide como maximo 90.
+  const diasMax = () => esDuena() ? Infinity : DIAS_MAX_EMPLEADA;
+  const diasHasta = diaClave => { const [y, m, d] = diaClave.split("-").map(Number); return Math.ceil((Date.now() - new Date(y, m - 1, d).getTime()) / 864e5) + 1; };
+  const puedeAmpliar = () => state.dias < diasMax();
+  const fueraDeAlcance = diaClave => diasHasta(diaClave) > diasMax();
   function ampliarHasta(diaClave) {
-    const [y, m, d] = diaClave.split("-").map(Number);
-    const necesarios = Math.ceil((Date.now() - new Date(y, m - 1, d).getTime()) / 864e5) + 1;
-    if (necesarios > state.dias) { state.dias = Math.ceil(necesarios / 30) * 30; if (datosIniciados) suscribirOrdenes(); return true; }
+    const objetivo = Math.min(Math.ceil(diasHasta(diaClave) / 30) * 30, diasMax());
+    if (objetivo > state.dias) { state.dias = objetivo; if (datosIniciados) suscribirOrdenes(); return true; }
     return false;
   }
-  function ampliarDias(mas) { state.dias += mas; if (datosIniciados) suscribirOrdenes(); }
+  function ampliarDias(mas) {
+    const nuevo = Math.min(state.dias + mas, diasMax()); if (nuevo <= state.dias) return false;
+    state.dias = nuevo; if (datosIniciados) suscribirOrdenes(); return true;
+  }
 
   // ---------- Ordenes ----------
   function numeroSiguiente() {
@@ -215,7 +223,8 @@ const Store = (() => {
     state, on, init, traducir, configurado, esDuena, codigo, codigoSiguiente, numeroSiguiente,
     get perfil() { return perfil; }, get user() { return user; },
     guardarOrdenNueva, guardarOrdenEditada, borrarOrden, agregarProducto, quitarProducto, guardarConfig,
-    guardarUsuario, quitarUsuario, todasLasOrdenes, importar, ampliarHasta, ampliarDias,
+    guardarUsuario, quitarUsuario, todasLasOrdenes, importar, ampliarHasta, ampliarDias, puedeAmpliar, fueraDeAlcance,
+    DIAS_MAX_EMPLEADA,
     entrarGoogle, entrar, registrar, reenviarVerificacion, recuperar, yaConfirme, salir,
   };
 })();

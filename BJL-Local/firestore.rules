@@ -1,7 +1,7 @@
 rules_version = '2';
 
 // =====================================================
-// REGLAS DE SEGURIDAD - BJL Bordados
+// REGLAS DE SEGURIDAD - BJL Bordados (minimo privilegio)
 // Cambia SOLO el correo de la dueña (una vez) y publica estas reglas en
 // Firebase > Firestore Database > Reglas.
 //
@@ -9,6 +9,9 @@ rules_version = '2';
 //   - la dueña (correo de abajo), o
 //   - quien la dueña haya agregado en la app (Ajustes > Usuarios) y este activo.
 // Todos deben tener el correo confirmado.
+//
+// OJO: una escritura hecha sin internet que estas reglas rechacen se PIERDE al
+// sincronizar. Por eso los limites son amplios y la app los respeta antes de guardar.
 // =====================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -28,17 +31,124 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/usuarios/$(correo())).data.activo == true);
     }
 
-    // Lista de personas autorizadas: solo la dueña la modifica.
-    // Cada persona puede leer unicamente su propio registro.
+    // ---------- Ayudas de validacion ----------
+    // Nombre con el que la app firma las ordenes (perfil.nombre; si falta, el correo)
+    function miNombre() {
+      return get(/databases/$(database)/documents/usuarios/$(correo())).data.get('nombre', request.auth.token.email);
+    }
+    function texto(v, max) { return v is string && v.size() <= max; }
+    function textoOpc(d, k, max) { return !(k in d) || texto(d[k], max); }
+    // Fecha como la guarda la app: Date.toISOString() -> 2026-11-11T15:04:05.123Z
+    function fechaIso(v) {
+      return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}([.][0-9]{1,3})?Z$');
+    }
+    function dos(n) { return n < 10 ? '0' + string(n) : string(n); }
+    // Dia (UTC) hasta donde una empleada puede consultar el historial: hoy - 100 dias.
+    // La app le limita la consulta a 90 dias; los 10 de margen cubren zona horaria y reloj.
+    function limiteEmpleada() {
+      let t = request.time - duration.value(100, 'd');
+      return string(t.year()) + '-' + dos(t.month()) + '-' + dos(t.day());
+    }
+
+    // ---------- Usuarios autorizados (sin cambios) ----------
+    // Solo la dueña la modifica. Cada persona puede leer unicamente su propio registro.
     match /usuarios/{id} {
       allow read: if esDuena() || (verificada() && id == correo());
       allow write: if esDuena();
     }
 
-    match /ordenes/{id}    { allow read, write: if autorizado(); }
-    match /productos/{id}  { allow read, write: if autorizado(); }
-    match /contadores/{id} { allow read, write: if autorizado(); }
-    match /config/{id}     { allow read, write: if autorizado(); }
+    // ---------- Ordenes ----------
+    function emisorValido(e) {
+      return e is map
+        && e.keys().hasOnly(['direccion', 'telefono', 'nit', 'mensaje'])
+        && textoOpc(e, 'direccion', 500) && textoOpc(e, 'telefono', 500)
+        && textoOpc(e, 'nit', 500) && textoOpc(e, 'mensaje', 500);
+    }
+    // Esquema comun. 'nota' (respaldos muy viejos) y 'editada'/'editadaPor' solo
+    // llegan en una creacion cuando la dueña importa un respaldo.
+    function ordenValida(d) {
+      return d.keys().hasOnly(['num', 'codigo', 'fecha', 'cliente', 'items', 'total', 'por',
+                               'emisor', 'nota', 'editada', 'editadaPor'])
+        && d.keys().hasAll(['num', 'codigo', 'fecha', 'items', 'total'])
+        && d.num is int && d.num >= 0
+        && texto(d.codigo, 40) && d.codigo.size() > 0
+        && fechaIso(d.fecha)
+        && textoOpc(d, 'cliente', 200)
+        && d.items is list && d.items.size() <= 200
+        && d.total is number && d.total >= 0
+        && textoOpc(d, 'por', 320)
+        && textoOpc(d, 'nota', 2000)
+        && (!('editada' in d) || fechaIso(d.editada))
+        && textoOpc(d, 'editadaPor', 320)
+        && (!('emisor' in d) || emisorValido(d.emisor));
+    }
+    // Una empleada solo crea ordenes normales, firmadas con su propio nombre.
+    function ordenNuevaDeEmpleada(d) {
+      return d.keys().hasAll(['cliente', 'por', 'emisor'])
+        && !('nota' in d) && !('editada' in d) && !('editadaPor' in d)
+        && d.items.size() >= 1
+        && d.por == miNombre();
+    }
+    // Al editar solo cambian cliente, productos, total y la marca de edicion.
+    // num, codigo, fecha, por, emisor (y cualquier campo antiguo) quedan iguales.
+    function edicionValida() {
+      let d = request.resource.data;
+      return d.diff(resource.data).affectedKeys()
+               .hasOnly(['cliente', 'items', 'total', 'editada', 'editadaPor'])
+        && textoOpc(d, 'cliente', 200)
+        && d.items is list && d.items.size() <= 200
+        && d.total is number && d.total >= 0
+        && fechaIso(d.editada)
+        && texto(d.editadaPor, 320)
+        && (esDuena() || d.editadaPor == miNombre());
+    }
+
+    match /ordenes/{id} {
+      allow get: if autorizado();
+      // Historial completo (respaldo, dias antiguos): solo la dueña.
+      // Empleadas: la consulta debe pedir fecha >= hace 100 dias.
+      allow list: if esDuena() || (autorizado() && resource.data.fecha >= limiteEmpleada());
+      allow create: if autorizado() && ordenValida(request.resource.data)
+                    && (esDuena() || ordenNuevaDeEmpleada(request.resource.data));
+      allow update: if autorizado() && edicionValida();
+      allow delete: if esDuena();
+    }
+
+    // ---------- Consecutivo ----------
+    // No se exige que aumente: una orden guardada sin internet puede llegar despues
+    // con un numero menor y no debe rechazarse el lote (orden + contador).
+    match /contadores/{id} {
+      allow read: if autorizado();
+      allow create, update: if autorizado() && id == 'general'
+        && request.resource.data.keys().hasOnly(['siguiente'])
+        && request.resource.data.siguiente is int && request.resource.data.siguiente >= 1;
+    }
+
+    // ---------- Datos del recibo ----------
+    match /config/{id} {
+      allow read: if autorizado();
+      allow create, update: if esDuena() && id == 'recibo'
+        && request.resource.data.keys().hasOnly(['direccion', 'telefono', 'nit', 'mensaje'])
+        && textoOpc(request.resource.data, 'direccion', 200)
+        && textoOpc(request.resource.data, 'telefono', 200)
+        && textoOpc(request.resource.data, 'nit', 200)
+        && textoOpc(request.resource.data, 'mensaje', 200);
+    }
+
+    // ---------- Productos ----------
+    // Empleadas: pueden AGREGAR (llega un producto nuevo al mostrador; la dueña lo
+    // puede quitar). Quitar o cambiar uno solo la dueña: es destructivo y cambia
+    // la lista de todo el equipo.
+    match /productos/{id} {
+      allow read: if autorizado();
+      allow create: if autorizado()
+        && request.resource.data.keys().hasOnly(['nombre', 'precio', 'fijo'])
+        && request.resource.data.keys().hasAll(['nombre', 'precio', 'fijo'])
+        && texto(request.resource.data.nombre, 100) && request.resource.data.nombre.size() > 0
+        && request.resource.data.precio is number && request.resource.data.precio >= 0
+        && request.resource.data.fijo is bool;
+      allow delete: if esDuena();
+    }
 
     // Todo lo demas queda prohibido.
   }

@@ -32,6 +32,11 @@ PARTE 1 - CREAR TU FIREBASE (la base de datos)
      Reemplazalo por TU Gmail (el que usaras para entrar a la app), en
      minusculas.
    - Toca "Publicar".
+   - Si ya usabas la app y estas ACTUALIZANDO las reglas: primero sube a GitHub
+     los archivos nuevos de la app (Parte 3, ultimo punto de IMPORTANTE), abre
+     la app con internet en cada celular para que tome la version nueva, y
+     DESPUES publica las reglas. Con la version vieja de la app, algunas
+     acciones (cargar ordenes muy antiguas, importar) darian "sin permiso".
 6. Rueda de configuracion (arriba a la izquierda) > "Configuracion del
    proyecto" > bajando a "Tus apps" > icono web  </>  > Apodo: bjl-web >
    "Registrar app". Te muestra un bloque "firebaseConfig" con apiKey,
@@ -79,6 +84,14 @@ PARTE 4 - TU PRIMER INGRESO Y AUTORIZAR PERSONAS
     - Si alguien no esta en tu lista, NO puede ver ni guardar nada.
     - Para quitar el acceso: "Desactivar" (se puede volver a activar) o
       "Quitar". El acceso se corta al instante.
+    - Que puede hacer cada persona autorizada (lo exigen las reglas):
+        * Crear y editar ordenes (al editar no cambia el numero, la fecha ni
+          quien la hizo) y agregar productos a la lista.
+        * Ver ordenes de los ultimos 90 dias.
+      Solo la DUEÑA puede: eliminar ordenes, quitar productos, cambiar los
+      datos del recibo, ver ordenes de hace mas de 90 dias, crear respaldos,
+      importar y administrar usuarios. A las demas personas esos botones no
+      les aparecen.
 
 ------------------------------------------------------------
 INSTALAR EN CADA CELULAR (para que quede como una app)
@@ -125,4 +138,8 @@ SI ALGO FALLA
   persona toca "Reintentar".
 - "Missing or insufficient permissions"/no guarda: revisa que el correo en las
   reglas (paso 5) sea EXACTAMENTE el mismo de firebase-config.js, y que
-  hayas tocado "Publicar".
+  hayas tocado "Publicar". Si solo falla en algunos celulares, puede que
+  tengan la version vieja de la app: abrela con internet y vuelve a entrar.
+- Una persona que no es la dueña ve "Tu correo no esta autorizado" al buscar
+  una fecha muy antigua: su celular tiene la version vieja de la app o la
+  fecha/hora del celular esta mal. Corrige la hora y abre la app con internet.

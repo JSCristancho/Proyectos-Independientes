@@ -26,6 +26,11 @@ const num0 = v => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n
 const limpiarItem = i => { i = esObj(i) ? i : {}; return { nombre: String(i.nombre ?? ""), cantidad: entero1(i.cantidad), precio: num0(i.precio), obs: String(i.obs ?? "") }; };
 const limpiarItems = a => (Array.isArray(a) ? a : []).map(limpiarItem);
 const itemsValidos = o => esObj(o) && Array.isArray(o.items) && o.items.every(esObj);
+// Limites que tambien exigen las reglas de Firestore (firestore.rules). Una escritura sin
+// internet que las reglas rechacen se pierde al sincronizar: por eso se recortan aqui antes.
+const MAX_LINEAS = 200;
+const FECHA_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
+const corto = (v, max) => String(v ?? "").slice(0, max);
 
 const ic = e => `<span aria-hidden="true">${e}</span>`;
 const sinMovimiento = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -230,9 +235,10 @@ $("btnCancelarEdicion").addEventListener("click", () => { if (confirm("¿Cancela
 // ---------------- Generar recibo ----------------
 $("btnGenerar").addEventListener("click", () => {
   if (!lineas.length) return marcarError("selProducto", "Agrega al menos un producto a la orden.");
+  if (lineas.length > MAX_LINEAS) return marcarError("selProducto", `Una orden puede tener máximo ${MAX_LINEAS} productos.`);
   if (lineas.some(l => !(Number(l.precio) > 0)) && !confirm("Hay productos con valor $0. ¿Generar el recibo así?")) return;
   const items = lineas.map(l => ({ nombre: l.nombre, cantidad: l.cantidad, precio: Number(l.precio) || 0, obs: l.obs.trim() }));
-  const total = items.reduce((t, i) => t + i.cantidad * i.precio, 0), cliente = $("cliente").value.trim();
+  const total = items.reduce((t, i) => t + i.cantidad * i.precio, 0), cliente = $("cliente").value.trim().slice(0, 200);
   let order;
   try {
     if (editing) {
@@ -312,8 +318,9 @@ function renderHistorial() {
     if (!q) return true;
     return norm([cod(o), o.cliente || "", fmtFecha(o.fecha), o.por || ""].join(" ")).includes(q);
   }).sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : 0));
-  const suma = lista.reduce((t, o) => t + o.total, 0);
-  $("hResumen").textContent = lista.length ? `${lista.length} orden(es) · Suma: ${money(suma)}` : (orders.length ? "Ninguna orden coincide." : "");
+  const suma = lista.reduce((t, o) => t + o.total, 0), duena = Store.esDuena();
+  $("hResumen").textContent = fd && Store.fueraDeAlcance(fd) ? `Solo la dueña puede ver órdenes de hace más de ${Store.DIAS_MAX_EMPLEADA} días.`
+    : lista.length ? `${lista.length} orden(es) · Suma: ${money(suma)}` : (orders.length ? "Ninguna orden coincide." : "");
   $("hLista").innerHTML = lista.length ? lista.slice(0, hLimite).map(o => `
     <div class="card" data-id="${esc(o.id)}">
       <div class="t"><b>N° ${esc(cod(o))} · ${o.cliente ? esc(o.cliente) : "<i>Sin cliente</i>"}</b><span class="m">${money(o.total)}</span></div>
@@ -323,13 +330,16 @@ function renderHistorial() {
         <button type="button" data-a="imprimir" aria-label="Imprimir recibo ${esc(cod(o))}">${ic("🖨")} Imprimir</button>
         <button type="button" data-a="compartir" aria-label="Compartir recibo ${esc(cod(o))}">${ic("📤")} Compartir</button>
         <button type="button" data-a="editar" aria-label="Editar orden ${esc(cod(o))}">${ic("✏️")} Editar</button>
-        <button type="button" class="peligro" data-a="eliminar" aria-label="Eliminar orden ${esc(cod(o))}">${ic("🗑")} Eliminar</button>
+        ${duena ? `<button type="button" class="peligro" data-a="eliminar" aria-label="Eliminar orden ${esc(cod(o))}">${ic("🗑")} Eliminar</button>` : ""}
       </div>
     </div>`).join("") + (lista.length > hLimite ? `<button type="button" class="secundario ancho" id="btnVerMas">Mostrar más (${lista.length - hLimite})</button>` : "")
     : `<p class="vacio">${orders.length ? "No hay órdenes con ese filtro." : "Aún no hay órdenes en los últimos " + Store.state.dias + " días."}</p>`;
-  $("hMas").hidden = false;
+  $("hMas").hidden = !Store.puedeAmpliar();
 }
-$("btnMasAntiguas").addEventListener("click", () => { Store.ampliarDias(90); toast("Cargando órdenes más antiguas…"); });
+$("btnMasAntiguas").addEventListener("click", () => {
+  if (Store.ampliarDias(90)) toast("Cargando órdenes más antiguas…");
+  else toast(`Solo la dueña puede ver órdenes de hace más de ${Store.DIAS_MAX_EMPLEADA} días.`);
+});
 $("hBuscar").addEventListener("input", () => { hLimite = 100; renderHistorial(); });
 $("hFecha").addEventListener("input", () => { hLimite = 100; renderHistorial(); });
 $("hLimpiar").addEventListener("click", () => { $("hBuscar").value = ""; $("hFecha").value = ""; hLimite = 100; renderHistorial(); $("hBuscar").focus(); });
@@ -352,7 +362,7 @@ function pintarCierre() {
   const os = orders.filter(o => dayKey(o.fecha) === d).sort((a, b) => (a.fecha < b.fecha ? -1 : 1));
   const t = os.reduce((s, o) => s + o.total, 0);
   $("cRes").innerHTML = `<div class="big">${money(t)}</div>
-    <div class="ayuda">${os.length} pedido(s) · Promedio: ${money(os.length ? t / os.length : 0)}${cargando ? " · cargando…" : ""}</div>
+    <div class="ayuda">${Store.fueraDeAlcance(d) ? `Solo la dueña puede ver días de hace más de ${Store.DIAS_MAX_EMPLEADA} días.` : `${os.length} pedido(s) · Promedio: ${money(os.length ? t / os.length : 0)}${cargando ? " · cargando…" : ""}`}</div>
     ${os.length ? `<table><caption class="sr">Órdenes del día</caption><thead><tr><th scope="col">Orden</th><th scope="col">Total</th></tr></thead><tbody>` + os.map(o => `<tr><td>N° ${esc(cod(o))} ${esc(o.cliente || "")}</td><td>${money(o.total)}</td></tr>`).join("") + "</tbody></table>" : ""}`;
 }
 $("btnCierre").addEventListener("click", () => {
@@ -372,7 +382,7 @@ function renderProductos() {
   $("pLista").innerHTML = products.length ? products.map(p => `
     <div class="card prod" data-id="${esc(p.id)}">
       <div><div class="n">${esc(p.nombre)}</div><div class="pr">${p.fijo ? "Precio fijo: " + money(p.precio) : "Sin precio fijo (lo escribes en cada orden)"}</div></div>
-      <button type="button" class="peligro" data-a="del" aria-label="Quitar ${esc(p.nombre)} de la lista">${ic("🗑")} Quitar</button>
+      ${Store.esDuena() ? `<button type="button" class="peligro" data-a="del" aria-label="Quitar ${esc(p.nombre)} de la lista">${ic("🗑")} Quitar</button>` : ""}
     </div>`).join("") : `<p class="vacio">La lista está vacía.</p>`;
 }
 function alternarPrecioFijo() {
@@ -381,7 +391,7 @@ function alternarPrecioFijo() {
 }
 $("pFijo").addEventListener("change", alternarPrecioFijo);
 $("btnNuevoProducto").addEventListener("click", () => {
-  const nombre = $("pNombre").value.trim(), fijo = $("pFijo").checked, precio = Math.max(0, Number($("pPrecio").value) || 0);
+  const nombre = $("pNombre").value.trim().slice(0, 100), fijo = $("pFijo").checked, precio = Math.max(0, Number($("pPrecio").value) || 0);
   if (!nombre) return marcarError("pNombre", "Escribe el nombre del producto.");
   if (fijo && !precio) return marcarError("pPrecio", "Escribe el precio fijo o desmarca la casilla.");
   if (products.some(p => norm(p.nombre) === norm(nombre))) return marcarError("pNombre", "Ese producto ya está en la lista.");
@@ -405,14 +415,17 @@ function renderAjustes() {
   if (document.activeElement.closest && !document.activeElement.closest("#v-ajustes")) {
     $("aDir").value = cfg.direccion; $("aTel").value = cfg.telefono; $("aNit").value = cfg.nit; $("aMsg").value = cfg.mensaje;
   }
-  $("seccionUsuarios").hidden = $("seccionRespaldo").hidden = !Store.esDuena();
+  $("seccionUsuarios").hidden = $("seccionRespaldo").hidden = $("btnGuardarAjustes").hidden = !Store.esDuena();
+  ["aDir", "aTel", "aNit", "aMsg"].forEach(id => $(id).readOnly = !Store.esDuena());   // solo la dueña los cambia
   if (Store.esDuena()) renderUsuarios();
   $("infoAlmacen").textContent = `Se muestran las órdenes de los últimos ${Store.state.dias} días (${orders.length} cargadas).`;
 }
 function llenarCamposRecibo() { $("aDir").value = cfg.direccion; $("aTel").value = cfg.telefono; $("aNit").value = cfg.nit; $("aMsg").value = cfg.mensaje; }
 
 $("btnGuardarAjustes").addEventListener("click", () => {
-  Store.guardarConfig({ direccion: $("aDir").value.trim(), telefono: $("aTel").value.trim(), nit: $("aNit").value.trim(), mensaje: $("aMsg").value.trim() });
+  if (!Store.esDuena()) return;
+  const v = id => $(id).value.trim().slice(0, 200);
+  Store.guardarConfig({ direccion: v("aDir"), telefono: v("aTel"), nit: v("aNit"), mensaje: v("aMsg") });
   toast("Datos guardados. Valen para los recibos nuevos.");
 });
 $("btnSalir").addEventListener("click", () => {
@@ -472,22 +485,29 @@ function convertirViejo(d) {        // respaldos de versiones anteriores (local 
   };
   return { orders: (d.pedidos || []).map(desdePedido), products: d.productos || [] };
 }
+// Deja la orden importada exactamente con los campos y tipos que aceptan las reglas
 function normalizarOrden(o) {
-  const num = Number.isFinite(o.num) ? o.num : Number(o.id) || 0;
+  const num = Number.isInteger(o.num) && o.num >= 0 ? o.num : Math.max(0, Math.trunc(Number(o.id) || 0));
   const items = limpiarItems(o.items), suma = items.reduce((t, i) => t + i.cantidad * i.precio, 0);
   const t = Number(o.total), total = Number.isFinite(t) && t >= 0 ? t : suma;
-  return { ...o, id: undefined, num, codigo: String(o.codigo || Receipts.numStr(o.id ?? num)), items, total };
+  const iso = v => { const f = new Date(v); return isNaN(f) ? "" : f.toISOString(); };
+  const r = { num, codigo: corto(o.codigo || Receipts.numStr(o.id ?? num), 40), fecha: iso(o.fecha), cliente: corto(o.cliente, 200), items, total };
+  if (o.por != null) r.por = corto(o.por, 320);
+  if (o.nota) r.nota = corto(o.nota, 2000);
+  if (o.editada && iso(o.editada)) { r.editada = iso(o.editada); if (o.editadaPor != null) r.editadaPor = corto(o.editadaPor, 320); }
+  if (esObj(o.emisor)) r.emisor = { direccion: corto(o.emisor.direccion, 500), telefono: corto(o.emisor.telefono, 500), nit: corto(o.emisor.nit, 500), mensaje: corto(o.emisor.mensaje, 500) };
+  return r;
 }
 $("archivoRestaurar").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   try {
     const d = JSON.parse(await f.text());
-    let r = Array.isArray(d.orders) ? { orders: d.orders.filter(itemsValidos).map(normalizarOrden), products: d.products || [] } : convertirViejo(d);
-    r.orders = r.orders.filter(o => itemsValidos(o) && o.fecha && !isNaN(new Date(o.fecha)));
+    let r = Array.isArray(d.orders) ? { orders: d.orders, products: d.products || [] } : convertirViejo(d);
+    r.orders = r.orders.filter(itemsValidos).map(normalizarOrden).filter(o => FECHA_ISO.test(o.fecha));
     const ya = new Set(orders.map(o => cod(o) + "|" + o.fecha));
     const nuevas = r.orders.filter(o => !ya.has(cod(o) + "|" + o.fecha));
     const nombres = new Set(products.map(p => norm(p.nombre)));
-    const prods = r.products.filter(p => p.nombre && !nombres.has(norm(p.nombre))).map(p => ({ nombre: String(p.nombre), precio: Number(p.precio) || 0, fijo: !!(p.fijo ?? Number(p.precio) > 0) }));
+    const prods = r.products.filter(p => p.nombre && !nombres.has(norm(p.nombre))).map(p => ({ nombre: corto(p.nombre, 100), precio: Math.max(0, Number(p.precio) || 0), fijo: !!(p.fijo ?? Number(p.precio) > 0) }));
     if (!nuevas.length && !prods.length) return alert("No hay nada nuevo para importar: todo ya está en el sistema.");
     if (!confirm(`Se agregarán ${nuevas.length} orden(es) y ${prods.length} producto(s) nuevos.\nNo se borra nada de lo que ya existe. ¿Continuar?`)) return;
     toast("Importando…"); await Store.importar({ orders: nuevas, products: prods }); toast("Importación completa ✅");

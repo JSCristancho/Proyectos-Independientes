@@ -1,7 +1,7 @@
 // Cache de la app para que funcione sin internet.
 // Estrategia: responde al instante desde el cache y, en segundo plano, descarga la version nueva
 // (asi las actualizaciones llegan solas la siguiente vez que se abre la app).
-const CACHE = "bjl-app-v5";
+const CACHE = "bjl-app-v6";
 const ARCHIVOS = [
   "./", "index.html", "style.css", "app.js", "store.js", "firebase-config.js", "receipts.js", "logo.js",
   "lib/jspdf.umd.min.js", "lib/firebase-bundle.js", "manifest.json", "icons/icon-192.png", "icons/icon-512.png",
