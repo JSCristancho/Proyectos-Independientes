@@ -2,6 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<!-- CSP: sin 'unsafe-inline' en scripts. Google/Firebase Auth: apis.google.com (script) + iframe del authDomain.
+     Firestore/Auth por HTTPS a googleapis. blob: = PDF (iframe de impresion / pestaña "Ver"). frame-ancestors no
+     se puede fijar por <meta>: requiere cabecera HTTP (GitHub Pages no la permite). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' https://apis.google.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://www.googleapis.com; frame-src blob: https://bjl-bordados-71888.firebaseapp.com; img-src 'self' data: blob:; style-src 'self'; object-src blob:; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#5B2C83">
 <meta name="color-scheme" content="light dark">
