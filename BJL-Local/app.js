@@ -19,6 +19,14 @@ const dayKey = iso => { const d = new Date(iso); return `${d.getFullYear()}-${St
 const esMovil = () => /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 const cod = o => o.codigo || Receipts.numStr(o.id);
 
+// Saneado de datos que vienen de Firestore o de un archivo: solo tipos y campos conocidos
+const esObj = x => x !== null && typeof x === "object" && !Array.isArray(x);
+const entero1 = v => { const n = Math.floor(Number(v)); return Number.isFinite(n) && n >= 1 ? n : 1; };
+const num0 = v => { const n = Number(v); return Number.isFinite(n) && n >= 0 ? n : 0; };
+const limpiarItem = i => { i = esObj(i) ? i : {}; return { nombre: String(i.nombre ?? ""), cantidad: entero1(i.cantidad), precio: num0(i.precio), obs: String(i.obs ?? "") }; };
+const limpiarItems = a => (Array.isArray(a) ? a : []).map(limpiarItem);
+const itemsValidos = o => esObj(o) && Array.isArray(o.items) && o.items.every(esObj);
+
 const ic = e => `<span aria-hidden="true">${e}</span>`;
 const sinMovimiento = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const FOCO = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
@@ -151,11 +159,11 @@ function renderLineas() {
         <div><label for="l${i}-cant">Cantidad${sr}</label>
           <div class="cant">
             <button type="button" data-act="menos" aria-label="Disminuir cantidad de ${n}">−</button>
-            <input id="l${i}-cant" type="number" inputmode="numeric" min="1" step="1" data-f="cantidad" value="${l.cantidad}">
+            <input id="l${i}-cant" type="number" inputmode="numeric" min="1" step="1" data-f="cantidad" value="${esc(l.cantidad)}">
             <button type="button" data-act="mas" aria-label="Aumentar cantidad de ${n}">+</button>
           </div></div>
         <div><label for="l${i}-precio">Valor unitario ($)${sr}</label>
-          <input id="l${i}-precio" type="number" inputmode="numeric" min="0" data-f="precio" placeholder="0" value="${l.precio === "" ? "" : l.precio}"></div>
+          <input id="l${i}-precio" type="number" inputmode="numeric" min="0" data-f="precio" placeholder="0" value="${l.precio === "" ? "" : esc(l.precio)}"></div>
       </div>
       <div class="obs"><label for="l${i}-obs">Observaciones <span class="opc">(opcional)</span>${sr}</label>
       <textarea id="l${i}-obs" rows="2" data-f="obs" placeholder="Ej: color, tamaño, ubicación">${esc(l.obs)}</textarea></div>
@@ -210,7 +218,7 @@ function resetOrden() {
 
 function cargarEdicion(o) {
   editing = o; $("cliente").value = o.cliente || "";
-  lineas = o.items.map(i => ({ nombre: i.nombre, cantidad: i.cantidad, precio: i.precio, obs: i.obs || "" }));
+  lineas = limpiarItems(o.items);
   $("edNum").textContent = cod(o); $("bannerEdicion").hidden = false;
   $("btnGenerar").innerHTML = ic("💾") + " Guardar cambios";
   $("oFecha").textContent = fmtFecha(o.fecha); $("oHora").textContent = fmtHora(o.fecha);
@@ -466,18 +474,20 @@ function convertirViejo(d) {        // respaldos de versiones anteriores (local 
 }
 function normalizarOrden(o) {
   const num = Number.isFinite(o.num) ? o.num : Number(o.id) || 0;
-  return { ...o, id: undefined, num, codigo: o.codigo || Receipts.numStr(o.id ?? num) };
+  const items = limpiarItems(o.items), suma = items.reduce((t, i) => t + i.cantidad * i.precio, 0);
+  const t = Number(o.total), total = Number.isFinite(t) && t >= 0 ? t : suma;
+  return { ...o, id: undefined, num, codigo: String(o.codigo || Receipts.numStr(o.id ?? num)), items, total };
 }
 $("archivoRestaurar").addEventListener("change", async e => {
   const f = e.target.files[0]; e.target.value = ""; if (!f) return;
   try {
     const d = JSON.parse(await f.text());
-    let r = Array.isArray(d.orders) ? { orders: d.orders.map(normalizarOrden), products: d.products || [] } : convertirViejo(d);
-    r.orders = r.orders.filter(o => Array.isArray(o.items) && o.fecha && !isNaN(new Date(o.fecha)));
+    let r = Array.isArray(d.orders) ? { orders: d.orders.filter(itemsValidos).map(normalizarOrden), products: d.products || [] } : convertirViejo(d);
+    r.orders = r.orders.filter(o => itemsValidos(o) && o.fecha && !isNaN(new Date(o.fecha)));
     const ya = new Set(orders.map(o => cod(o) + "|" + o.fecha));
     const nuevas = r.orders.filter(o => !ya.has(cod(o) + "|" + o.fecha));
     const nombres = new Set(products.map(p => norm(p.nombre)));
-    const prods = r.products.filter(p => p.nombre && !nombres.has(norm(p.nombre))).map(p => ({ nombre: String(p.nombre), precio: Number(p.precio) || 0, fijo: p.fijo ?? Number(p.precio) > 0 }));
+    const prods = r.products.filter(p => p.nombre && !nombres.has(norm(p.nombre))).map(p => ({ nombre: String(p.nombre), precio: Number(p.precio) || 0, fijo: !!(p.fijo ?? Number(p.precio) > 0) }));
     if (!nuevas.length && !prods.length) return alert("No hay nada nuevo para importar: todo ya está en el sistema.");
     if (!confirm(`Se agregarán ${nuevas.length} orden(es) y ${prods.length} producto(s) nuevos.\nNo se borra nada de lo que ya existe. ¿Continuar?`)) return;
     toast("Importando…"); await Store.importar({ orders: nuevas, products: prods }); toast("Importación completa ✅");
